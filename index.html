@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>Control de Generadores · Piazzas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{--azul:#0f2a4a;--azul2:#1d4e89;--fondo:#eef2f7;--card:#fff;--txt:#1b2533;--sub:#5d6b7e;--borde:#d7dee8;--rojo:#c62828;--verde:#2e7d32;--ambar:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Roboto,Arial,sans-serif;background:var(--fondo);color:var(--txt)}
+header{background:var(--azul);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0}
+header .acc{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.estado{font-size:12px;padding:3px 8px;border-radius:12px;background:#ffffff22}
+.tabs{display:flex;overflow-x:auto;background:var(--azul2);position:sticky;top:0;z-index:5}
+.tab{padding:11px 14px;color:#cfe0f5;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;font-size:14px;user-select:none}
+.tab.act{color:#fff;border-bottom-color:#ffd54f;background:#ffffff14;font-weight:600}
+.tab .bd{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--rojo);color:#fff;font-size:11px;margin-left:4px;text-align:center}
+.tab.cd{background:#e65100;color:#fff;font-weight:700;border-right:2px solid #0f2a4a}
+.tab.cd.act{background:#bf360c}
+#banner{display:none;background:var(--rojo);color:#fff;padding:9px 16px;font-weight:600;cursor:pointer;animation:parp 1.2s infinite}
+@keyframes parp{50%{background:#8e0000}}
+main{padding:16px;max-width:1200px;margin:auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.top h2{margin:0;font-size:20px}
+.top .res{color:var(--sub);font-size:13px}
+.btn{border:0;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer;background:var(--azul2);color:#fff;font-weight:600}
+.btn:hover{filter:brightness(1.1)}
+.btn.sec{background:#e3e9f2;color:var(--txt)}
+.btn.rojo{background:var(--rojo)}
+.btn.verde{background:var(--verde)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn.lt{background:#ffffff22}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.gen{background:var(--card);border:1px solid var(--borde);border-radius:12px;padding:14px;cursor:pointer;transition:.15s;position:relative;min-height:150px;display:flex;flex-direction:column;justify-content:space-between}
+.gen:hover{transform:translateY(-2px);box-shadow:0 6px 18px #0f2a4a22}
+.gen.bajo{border:2px solid var(--rojo)}
+.gen .ic{font-size:26px}
+.gen .tt{font-size:14px;color:var(--sub)}
+.gen .ub{font-size:16px;font-weight:700;margin:2px 0 10px}
+.gauge{height:22px;background:#e6eaf0;border-radius:11px;overflow:hidden;position:relative}
+.gauge .f{height:100%;border-radius:11px;transition:width .3s}
+.gauge span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1b2533;text-shadow:0 0 3px #fff}
+.gen .gal{font-size:12px;color:var(--sub);margin-top:6px;display:flex;justify-content:space-between}
+.tag{position:absolute;top:10px;right:10px;background:var(--rojo);color:#fff;font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px}
+.vacio{text-align:center;color:var(--sub);padding:50px 10px;background:#fff;border:2px dashed var(--borde);border-radius:12px}
+.centro{background:var(--card);border:1px solid var(--borde);border-radius:12px;padding:14px}
+.centro h3{margin:0 0 4px;font-size:17px}
+.centro .big{font-size:30px;font-weight:800;color:var(--azul2)}
+.centro .bt{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.panel{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:14px;margin-top:18px}
+.panel h3{margin:0 0 10px;font-size:16px}
+.filtros{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:10px}
+.filtros label{font-size:12px;color:var(--sub);display:flex;flex-direction:column;gap:3px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--borde);padding:7px 8px;text-align:left;white-space:nowrap}
+th{background:#f3f6fa;font-size:12px;color:var(--sub)}
+td.n,th.n{text-align:right}
+.ov{position:fixed;inset:0;background:#0009;display:none;align-items:flex-start;justify-content:center;z-index:50;overflow-y:auto;padding:24px 10px}
+.ov.on{display:flex}
+.md{background:#fff;border-radius:14px;width:100%;max-width:620px;padding:18px;position:relative}
+.md h3{margin:0 0 14px}
+.x{position:absolute;top:10px;right:14px;font-size:24px;cursor:pointer;color:var(--sub);border:0;background:none}
+.fm{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fm .full{grid-column:1/-1}
+.fm label{font-size:12px;font-weight:600;color:var(--sub);display:flex;flex-direction:column;gap:4px}
+input,select,textarea{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;background:#fff;color:var(--txt);width:100%}
+input[readonly]{background:#eef2f7;font-weight:700}
+.nivelbox{border:1px solid var(--borde);border-radius:10px;padding:10px}
+.nivelv{font-size:34px;font-weight:800;text-align:center}
+input[type=range]{-webkit-appearance:none;appearance:none;height:16px;border-radius:8px;padding:0;border:0;background:linear-gradient(to right,hsl(0,75%,45%),hsl(30,85%,48%),hsl(60,80%,45%),hsl(90,70%,40%),hsl(120,70%,35%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:3px solid var(--azul);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid var(--azul);cursor:pointer}
+.marcas{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:4px}
+.aviso50{display:none;margin-top:8px;background:#fdecea;color:var(--rojo);font-weight:700;font-size:13px;padding:6px 8px;border-radius:6px}
+.fotoprev img{max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--borde);cursor:zoom-in;display:block;margin-top:6px}
+.det{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:14px;margin-bottom:12px}
+.det div b{display:block;font-size:11px;color:var(--sub);text-transform:uppercase}
+.acciones{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+.alarma .md{border:4px solid var(--rojo)}
+.alarma h3{color:var(--rojo);font-size:22px}
+.alarma li{margin:6px 0;font-size:15px}
+#imgOv img{max-width:95vw;max-height:90vh;border-radius:8px;margin:auto}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1b2533;color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;display:none;z-index:99}
+.err{color:var(--rojo);font-size:13px;font-weight:600;margin-top:8px}
+.gridcd{grid-template-columns:repeat(auto-fit,minmax(270px,1fr));align-items:start}
+main.full{max-width:none}
+.gridcd .tq{min-width:120px}
+.tqinfo .mat,.tqinfo .btn{white-space:nowrap}
+.tqs{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.tq{display:flex;gap:8px;align-items:center;background:var(--mbg);border:2px solid var(--mc);border-radius:10px;padding:8px;min-width:140px;flex:1}
+.tq.off{opacity:.55;border-style:dashed}
+.tqcuerpo{position:relative;width:38px;height:62px;border:3px solid var(--mc);border-radius:10px 10px 6px 6px;background:#fff;overflow:hidden;flex:none}
+.tqlleno{position:absolute;left:0;right:0;bottom:0;transition:height .3s}
+.tqcuerpo span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#1b2533;text-shadow:0 0 3px #fff}
+.tqinfo{display:flex;flex-direction:column;font-size:12px;gap:1px}
+.tqinfo .mat{color:var(--mc);font-weight:700}
+.sinuso{color:#b7791f;font-weight:700}
+.leyenda{display:flex;gap:14px;font-size:12px;color:var(--sub);margin:-6px 0 12px;flex-wrap:wrap}
+.leyenda i{display:inline-block;width:14px;height:14px;border:2px solid;border-radius:4px;vertical-align:middle;margin-right:4px}
+.ultr{font-size:10.5px;color:var(--sub)}
+.tab.rs{background:#1565c0;color:#fff;font-weight:700}
+.tab.rs.act{background:#0d47a1}
+.tres th{background:#1f4e79;color:#fff;text-align:center;white-space:normal;font-size:12px}
+.tres td{border:1px solid var(--borde);vertical-align:middle}
+.tres td.pz{background:#ddebf7;font-weight:800;text-align:center;color:#0f2a4a}
+.tres td.cap{background:#fce4d6;font-weight:800;text-align:center}
+.tres tr:hover td:not(.pz){background:#f3f8ff}
+.rsm{width:auto}
+.rsm td,.rsm th{padding:4px 10px;line-height:1.25}
+.rsm .gauge{width:190px}
+.rsmBox{width:fit-content;max-width:100%;margin-left:auto;margin-right:auto}
+.tres tr.tot td{background:#1f4e79;color:#fff;font-weight:800}
+.tab.rp{background:#6a1b9a;color:#fff;font-weight:700}
+.tab.rp.act{background:#4a148c}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.kpi{background:#fff;border:1px solid var(--borde);border-top:4px solid var(--azul2);border-radius:10px;padding:12px}
+.kpi .kt{font-size:12px;color:var(--sub);font-weight:600}.kpi .kv{font-size:26px;font-weight:800;margin:4px 0}.kpi .ks{font-size:12px;color:var(--sub)}
+.ngrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+.ngrupo{border:1px solid var(--borde);border-radius:10px;padding:12px}
+.ntit{font-weight:800;margin-bottom:10px}.ntit span{color:var(--sub);font-weight:600}
+.nbar{display:grid;grid-template-columns:minmax(150px,38%) 1fr;gap:10px;align-items:center;margin:7px 0}
+.nlab{font-size:13px;font-weight:600}
+.ntrack{position:relative;height:26px;background:#eceff3;border-radius:6px;overflow:hidden}
+.nfill{height:100%;border-radius:6px 0 0 6px}
+.nmark{position:absolute;top:0;bottom:0;border-left:1px dashed #9aa5b4}
+.nval{position:absolute;left:8px;top:0;bottom:0;display:flex;align-items:center;font-size:12px;font-weight:800;color:#1b2533;text-shadow:0 0 3px #fff}
+.nesc{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-left:calc(38% + 10px)}
+.rephead{display:none;justify-content:space-between;align-items:center;border-bottom:3px solid var(--azul);padding:6px 0 10px;margin-bottom:12px}
+.repfir{display:none;margin-top:50px;gap:80px;justify-content:center}.repfir div{width:260px;text-align:center;border-top:1px solid #000;padding-top:4px}
+#repCont.modoPdf{background:#fff;padding:6px}#repCont.modoPdf .rephead,#repCont.modoPdf .repfir{display:flex}
+#repCont.modoPdf .tw{overflow:visible}
+.hm{display:flex;align-items:center;gap:6px}.hm input{width:100%;min-width:0}.hm span{font-size:13px;color:var(--sub);font-weight:600}
+.gen.problema{border:2px solid var(--rojo);background:#fff1f1}
+.gen .tagp{position:absolute;top:10px;right:10px;background:var(--rojo);color:#fff;font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px}
+.gen.bajo.problema .tagp{top:34px}
+.alertaProb{background:#ffe5e5;border:2px solid var(--rojo);color:#b00020;border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px}
+.alertaProb b{display:block;font-size:14px;margin-bottom:4px}
+.alertaProb ul{margin:0;padding-left:18px}
+.ultreg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.ultreg>div{background:#f6f8fb;border:1px solid var(--borde);border-radius:8px;padding:8px}
+.ultreg>div.mal{background:#ffe5e5;border-color:var(--rojo);color:#b00020}
+.ultreg b{display:block;font-size:11px;color:var(--sub);text-transform:uppercase;margin-bottom:3px}
+.ultreg .w{grid-column:1/-1}
+tr.mal td{background:#fff1f1}
+details.ficha>summary{cursor:pointer;font-weight:700;color:var(--azul2)}
+.canecas{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.canecas .cn{font-size:40px;font-weight:800;color:#6d4c41;line-height:1}
+.canecas .ic{display:flex;flex-wrap:wrap;gap:3px;max-width:520px}
+.canecas .ic span{font-size:20px}
+.gen.extra{border-top:4px solid #6d4c41}
+.gen.extra.cr{border-top-color:#1e88e5}
+.gen.extra .big{font-size:38px;font-weight:800;line-height:1.1}
+.gen.extra .mas{font-size:12px;color:var(--azul2);font-weight:700;text-align:center;margin-top:8px}
+.mpend{font-size:11px;font-weight:700;margin-top:6px;padding:3px 6px;border-radius:6px;text-align:center;background:#f3e5f5;color:#6a1b9a}
+.ubars{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;height:150px;align-items:end;margin-top:8px}
+.ubars .ub{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.ubf{width:70%;background:linear-gradient(#1e88e5,#1565c0);border-radius:4px 4px 0 0;min-height:2px}
+.ubv{font-size:9.5px;color:var(--sub);white-space:nowrap;margin-bottom:2px}.ubl{font-size:10px;color:var(--sub);margin-top:3px}
+.blq{font-size:12px;font-weight:700;background:#e3ecf8;color:var(--azul2);padding:2px 8px;border-radius:8px;vertical-align:middle}
+.chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700}
+.quedan{text-align:center;font-size:14px;margin-top:8px}
+.sep{grid-column:1/-1;font-weight:700;color:var(--azul2);border-bottom:2px solid #e3e9f2;padding-bottom:3px;margin-top:6px;font-size:13px}
+.nota{font-size:12px;color:var(--sub);background:#f3f6fa;padding:8px;border-radius:8px}
+.estados{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:12px 0;background:#f3f6fa;border-radius:10px;padding:10px;font-size:14px}
+.estados b{display:block;font-size:11px;color:var(--sub);text-transform:uppercase;margin-bottom:2px}
+.det3{grid-template-columns:repeat(3,1fr)}
+.sinreg,.okreg{font-size:11px;font-weight:700;margin-top:6px;padding:3px 6px;border-radius:6px;text-align:center}
+.sinreg{background:#fff4e0;color:#b7791f}.okreg{background:#e8f5e9;color:#2e7d32}
+@media(max-width:560px){.fm,.det,.det3{grid-template-columns:1fr}header h1{font-size:16px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⛽ Control de Generadores · Piazzas</h1>
+  <div class="acc">
+    <span class="estado" id="estado">Modo local</span>
+    <button class="btn sm lt" onclick="pedirNotif()">🔔 Notificaciones</button>
+    <button class="btn sm lt" onclick="exportarRespaldo()">💾 Respaldo</button>
+    <button class="btn sm lt" onclick="document.getElementById('impJson').click()">📂 Restaurar</button>
+    <input type="file" id="impJson" accept=".json" style="display:none" onchange="importarRespaldo(this)">
+  </div>
+</header>
+<div class="tabs" id="tabs"></div>
+<div id="banner" onclick="mostrarAlarma(true)"></div>
+<main id="main"></main>
+
+<div class="ov" id="ov"><div class="md" id="md"></div></div>
+<div class="ov alarma" id="alOv"><div class="md" id="alMd"></div></div>
+<div class="ov" id="imgOv" onclick="this.classList.remove('on')"><img id="imgBig" alt="Ficha técnica"></div>
+<div id="toast"></div>
+
+<script>
+/* ===== CONFIGURACIÓN FIREBASE (opcional) =====
+   Si se deja vacío, la app guarda en este navegador (localStorage).
+   Para sincronizar entre dispositivos, pegue aquí la configuración de su proyecto Firebase
+   (Firestore + Autenticación anónima habilitada). */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAbzJqZTVqo9WFyahp0EksdUOUfbY26Vao",
+  authDomain: "generadores-piazza.firebaseapp.com",
+  projectId: "generadores-piazza",
+  storageBucket: "generadores-piazza.firebasestorage.app",
+  messagingSenderId: "630646433129",
+  appId: "1:630646433129:web:d67991bc799bf9415b09f8"
+};
+
+const PIAZZAS = ['Bosques','Ceibos','Ciudad Celeste','FCG','Isora','La Joya','Murano','Samborondón','Villa Club','Villas del Rey','Aba Palmar','Conalba'];
+const CD = '__cd';
+const RES = '__res';
+const REP = '__rep';
+const LS = 'generadores_piazza_v1';
+const COLS = ['generadores','centros','despachos','ingresos','reservas'];
+let state = {generadores:[],centros:[],despachos:[],ingresos:[],reservas:[]};
+let tabAct = PIAZZAS[0];
+let db = null;
+let fotoTmp = null;
+
+/* ===== Utilidades ===== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const UMBRAL = 80; // % mínimo antes de pedir abastecimiento
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const num = v => { const n = parseFloat(String(v).replace(',','.')); return isNaN(n) ? 0 : n; };
+const fmt = n => (Math.round(num(n)*100)/100).toLocaleString('es-EC');
+const color = n => `hsl(${Math.round(Math.max(0,Math.min(100,n))*1.2)},75%,42%)`;
+const hoy = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const ahora = () => { const d=new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const fFecha = f => f ? f.split('-').reverse().join('/') : '';
+const fStamp = t => { const d=new Date(t); return d.toLocaleDateString('es-EC')+' '+d.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}); };
+function toast(m){ const t=$('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',2800); }
+function abrir(html, ancho){ $('md').style.maxWidth = ancho ? '1000px' : '620px'; $('md').innerHTML = '<button class="x" onclick="cerrar()">×</button>' + html; $('ov').classList.add('on'); }
+function cerrar(){ $('ov').classList.remove('on'); }
+function verImg(src){ $('imgBig').src = src; $('imgOv').classList.add('on'); }
+
+/* ===== Persistencia ===== */
+function guardarLocal(){
+  try { localStorage.setItem(LS, JSON.stringify(state)); }
+  catch(e){ toast('⚠ Almacenamiento del navegador lleno. Use fotos más livianas o configure Firebase.'); }
+}
+function cargarLocal(){
+  try { const s = JSON.parse(localStorage.getItem(LS)); if(s) COLS.forEach(c => state[c] = s[c] || []); } catch(e){}
+}
+function put(col, obj){
+  const a = state[col], i = a.findIndex(x => x.id === obj.id);
+  if(i >= 0) a[i] = obj; else a.push(obj);
+  guardarLocal();
+  if(db) db.collection(col).doc(obj.id).set(obj).catch(e => toast('Error al sincronizar: '+e.message));
+}
+function del(col, id){
+  state[col] = state[col].filter(x => x.id !== id);
+  guardarLocal();
+  if(db) db.collection(col).doc(id).delete().catch(e => toast('Error al sincronizar: '+e.message));
+}
+function cargarScript(src){ return new Promise((r,j)=>{ const s=document.createElement('script'); s.src=src; s.onload=r; s.onerror=j; document.head.appendChild(s); }); }
+async function initFirebase(){
+  if(!FIREBASE_CONFIG.apiKey) return;
+  try{
+    const v='10.12.2', b=`https://www.gstatic.com/firebasejs/${v}/`;
+    await cargarScript(b+'firebase-app-compat.js');
+    await cargarScript(b+'firebase-firestore-compat.js');
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    try{ await aplicarSeedFirebase(); }catch(e){ console.error(e); }
+    $('estado').textContent = '🟢 En línea';
+    COLS.forEach(c => db.collection(c).onSnapshot(snap => {
+      state[c] = snap.docs.map(d => d.data());
+      guardarLocal(); render(); revisarAlarma();
+    }));
+  }catch(e){ $('estado').textContent = '🟠 Sin conexión (local)'; console.error(e); }
+}
+
+/* ===== Pestañas ===== */
+function renderTabs(){
+  let h = `<div class="tab cd ${tabAct===CD?'act':''}" onclick="irTab('${CD}')">🏭 CENTRO DE DISTRIBUCIÓN <span class="bd" style="background:#ffd54f;color:#0f2a4a">${state.centros.length}</span></div>`;
+  h += `<div class="tab rs ${tabAct===RES?'act':''}" onclick="irTab('${RES}')">📋 RESUMEN GENERADORES</div>`;
+  h += `<div class="tab rp ${tabAct===REP?'act':''}" onclick="irTab('${REP}')">📄 REPORTE DIARIO</div>`;
+  h += PIAZZAS.map(p => {
+    const bajos = state.generadores.filter(g => g.piazza===p && tieneNivel(g) && num(g.nivel)<UMBRAL).length;
+    return `<div class="tab ${tabAct===p?'act':''}" onclick="irTab('${p}')">${esc(p)}${bajos?`<span class="bd">${bajos}</span>`:''}</div>`;
+  }).join('');
+  $('tabs').innerHTML = h;
+}
+function irTab(t){ tabAct = t; render(); window.scrollTo(0,0); }
+function render(){ renderTabs(); $('main').classList.toggle('full', [CD,RES,REP].includes(tabAct)); tabAct===CD ? renderCD() : tabAct===RES ? renderResumen() : tabAct===REP ? renderReporte() : renderPiazza(tabAct); }
+
+/* ===== Catálogos ===== */
+const OPC = {
+  aceite:['Bueno','Regular','Bajo','Requiere cambio'],
+  bateria:['Buena','Regular','Baja','Requiere cambio'],
+  refrigerante:['Normal','Bajo','Fuga','Requiere cambio'],
+  estado:['Operativo','Con novedad','En mantenimiento','Fuera de servicio']
+};
+const FUEL = ['Diésel','Gasolina','Gas natural','GLP'];
+const GAL_L = 3.78541;
+const dF = t => { const d=new Date(t); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const dH = t => { const d=new Date(t); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+const tieneNivel = g => g.nivel!==undefined && g.nivel!==null && g.nivel!=='';
+/* ===== Horómetro en horas y minutos =====
+   Se guarda como "H:MM". Acepta también los valores anteriores "501.9" / "850.50" (horas.minutos). */
+function horMin(v){
+  if(v===undefined||v===null||v==='') return null;
+  const s = String(v).trim(); let m = s.match(/^(\d+)\s*[:hH]\s*(\d{1,2})/);
+  if(m) return +m[1]*60 + Math.min(59, +m[2]);
+  m = s.match(/^(\d+)(?:[.,](\d+))?$/);
+  if(m){ const f = m[2] ? +m[2] : 0; return +m[1]*60 + (f<60 ? f : Math.round(parseFloat('0.'+m[2])*60)); }
+  return null;
+}
+const fmtHM = min => (min===null||min===undefined) ? '—' : `${Math.floor(min/60).toLocaleString('es-EC')} h ${String(Math.round(min%60)).padStart(2,'0')} min`;
+const minChip = m => num(m)>0 ? `<span class="chip" style="background:#e3f2fd;color:#1565c0;font-weight:800">⏱ ${fmtHM(m)}</span>` : `<span style="color:var(--sub)">${fmtHM(m||0)}</span>`;
+const fmtHor = v => fmtHM(horMin(v));
+const horStr = min => `${Math.floor(min/60)}:${String(min%60).padStart(2,'0')}`;
+function horInput(id, val, ph){
+  const m = horMin(val);
+  return `<div class="hm"><input id="${id}H" type="number" min="0" step="1" placeholder="${ph||'Horas'}" value="${m===null?'':Math.floor(m/60)}"><span>h</span>
+    <input id="${id}M" type="number" min="0" max="59" step="1" placeholder="Min" value="${m===null?'':m%60}"><span>min</span></div>`;
+}
+/* Devuelve "H:MM", '' si está vacío, o null si los minutos no son válidos */
+function leerHor(id){
+  const h = $(id+'H').value.trim(), mi = $(id+'M').value.trim();
+  if(h==='' && mi==='') return '';
+  const H = parseInt(h||'0',10), M = parseInt(mi||'0',10);
+  if(isNaN(H)||isNaN(M)||H<0||M<0||M>59) return null;
+  return horStr(H*60+M);
+}
+/* Minutos de encendido de cada registro (diferencia con el horómetro del registro anterior) */
+function usoRegistros(g){
+  const out = {}; let prev = null;
+  hist(g).forEach(r => { const m = horMin(r.horometro); if(m===null) return; if(prev!==null && m>=prev) out[r.id] = m-prev; prev = m; });
+  return out;
+}
+function usoPorDia(g){
+  const u = usoRegistros(g), d = {};
+  hist(g).forEach(r => { if(u[r.id]!==undefined) d[r.fecha] = (d[r.fecha]||0) + u[r.id]; });
+  return d;
+}
+const sumaDias = (d, desde, hasta) => Object.entries(d).filter(([f])=>f>=desde && f<=hasta).reduce((s,[,m])=>s+m,0);
+const diasAtras = n => dF(Date.now() - n*86400000);
+/* ===== Mantenimientos y problemas ===== */
+const TIPOS_MANT = {'Mantenimiento preventivo':'#1e88e5','Mantenimiento correctivo':'#6a1b9a','Problema / falla':'#c62828','Cambio de pieza':'#e65100','Inspección':'#2e7d32'};
+const PIEZAS = ['Motor','Alternador','Batería','Aceite y filtro de aceite','Filtro de aire','Filtro de combustible','Refrigerante / radiador','Correas','Motor de arranque','Módulo de control / tablero','Transferencia (ATS)','Tanque de combustible','Sistema de escape','Cableado eléctrico','Otro'];
+const ESTADOS_MANT = {'Pendiente':'#c62828','En proceso':'#b7791f','Resuelto':'#2e7d32'};
+const mants = g => (g.mant||[]).slice().sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+const mantPend = g => (g.mant||[]).filter(m=>m.estado!=='Resuelto');
+const NOMB = {aceite:'Aceite',bateria:'Batería',refrigerante:'Refrigerante',estado:'Estado general'};
+function problemas(g){
+  const out = [];
+  ['aceite','bateria','refrigerante','estado'].forEach(k=>{ if(['Bajo','Baja','Requiere cambio','Fuga','Con novedad','En mantenimiento','Fuera de servicio'].includes(g[k])) out.push(`${NOMB[k]}: ${g[k]}`); });
+  mantPend(g).forEach(m=>out.push(`${m.tipo} — ${m.pieza}: ${m.descripcion} (${m.estado})`));
+  return out;
+}
+const chipC = (txt, c) => `<span class="chip" style="background:${c}1f;color:${c}">${esc(txt)}</span>`;
+const galRest = g => tieneNivel(g) ? num(g.capacidad)*num(g.nivel)/100 : 0;
+/* Consumo por hora (toma el valor más alto del rango para calcular la autonomía mínima) */
+const consumoMax = g => { const m = String(g.consumo||'').match(/\d+(?:[.,]\d+)?/g); return m ? Math.max(...m.slice(0,2).map(x=>num(x))) : 0; };
+const autonomiaActual = g => { const c = consumoMax(g); return c>0 && tieneNivel(g) ? galRest(g)/c : null; };
+function chip(campo, v){
+  if(!v) return '<span style="color:var(--sub)">—</span>';
+  const i = (OPC[campo]||[]).indexOf(v), c = ['#2e7d32','#b7791f','#d84315','#c62828'][i] || '#5d6b7e';
+  return `<span class="chip" style="background:${c}1f;color:${c}">${esc(v)}</span>`;
+}
+function selHTML(id, campo, v){
+  return `<select id="${id}"><option value="">— Seleccione —</option>${OPC[campo].map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`;
+}
+/* Historial normalizado (compatible con registros antiguos) y ordenado */
+function hist(g){
+  return (g.historial||[]).map(r => r.id ? {...r} : {id:'h'+r.t, fecha:dF(r.t), hora:dH(r.t), nivel:r.nivel, nota:r.nota, t:r.t})
+    .sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora) || (a.t||0)-(b.t||0));
+}
+/* Los valores actuales del generador salen automáticamente del último registro */
+function recalc(g){
+  const h = hist(g); g.historial = h; if(!h.length) return g;
+  const ult = h[h.length-1]; g.nivel = num(ult.nivel); g.ultimoRegistro = ult.fecha+' '+ult.hora;
+  ['horometro','aceite','bateria','refrigerante','estado'].forEach(k => {
+    for(let i=h.length-1;i>=0;i--) if(h[i][k]!==undefined && h[i][k]!=='' && h[i][k]!==null){ g[k]=h[i][k]; break; }
+  });
+  return g;
+}
+
+/* ===== Vista Piazza ===== */
+function renderPiazza(p){
+  const gens = state.generadores.filter(g => g.piazza===p).sort((a,b)=>((a.bloque||'')+a.ubicacion).localeCompare((b.bloque||'')+b.ubicacion));
+  const tot = gens.reduce((s,g)=>s+galRest(g),0), cap = gens.reduce((s,g)=>s+num(g.capacidad),0);
+  let h = `<div class="top"><div><h2>Piazza ${esc(p)}</h2><div class="res">${gens.length} generador(es) · quedan ${fmt(tot)} de ${fmt(cap)} galones ${esCD(p)?'':`· 🛢 ${canecasDe(p).n} caneca(s) de reserva`}</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${gens.length?`<button class="btn sec" onclick="excelGeneradores('${p}')">📊 Excel</button>`:''}
+    <button class="btn" onclick="formGen()">+ Agregar generador</button></div></div>`;
+  if(!gens.length) h += `<div class="grid" style="margin-bottom:14px">${extrasHTML(p)}</div><div class="vacio">No hay generadores registrados en esta Piazza.<br><br><button class="btn" onclick="formGen()">+ Agregar generador</button></div>`;
+  else h += '<div class="grid">' + gens.map(g => {
+    const sn = tieneNivel(g), n = num(g.nivel), bajo = sn && n<UMBRAL, regHoy = hist(g).some(r=>r.fecha===hoy()), au = autonomiaActual(g);
+    const pr = problemas(g), ud = usoPorDia(g), ayer = diasAtras(1);
+    return `<div class="gen ${bajo?'bajo':''} ${pr.length?'problema':''}" onclick="verGen('${g.id}')">
+      ${bajo?'<div class="tag">⚠ ABASTECER</div>':''}${pr.length?`<div class="tagp" title="${esc(pr.join(' | '))}">🔴 PROBLEMA</div>`:''}
+      <div><div class="ic">🔌 ${g.bloque?`<span class="blq">${esc(g.bloque)}</span>`:''}</div><div class="tt">Generador ubicado en</div><div class="ub">${esc(g.ubicacion)}</div></div>
+      <div>${sn?`<div class="gauge"><div class="f" style="width:${n}%;background:${color(n)}"></div><span>Combustible ${n}%</span></div>
+      <div class="gal"><span>Quedan <b style="color:${color(n)}">${fmt(galRest(g))} gal</b></span><span>Cap. ${fmt(g.capacidad)} gal</span></div>
+      ${au!==null?`<div class="gal"><span>⚡ Autonomía ≈ <b>${fmt(au)} h</b></span><span></span></div>`:''}`
+      :`<div class="gauge"><span>Sin registro de nivel</span></div><div class="gal"><span>Cap. ${fmt(g.capacidad)} gal</span><span></span></div>`}
+      <div class="gal"><span>⏱ Horómetro: <b>${fmtHor(g.horometro)}</b></span><span>${chip('estado',g.estado)}</span></div>
+      <div class="gal"><span>🔋 Hoy: ${minChip(ud[hoy()]??0)}</span><span>Ayer: ${minChip(ud[ayer]??0)}</span></div>
+      ${pr.length?`<div class="mpend" style="background:#ffe5e5;color:#b00020">🔴 ${esc(pr[0])}${pr.length>1?` (+${pr.length-1})`:''}</div>`:''}
+      ${regHoy?'<div class="okreg">✔ Registro de hoy realizado</div>':'<div class="sinreg">⏳ Pendiente registro de hoy</div>'}</div>
+    </div>`;
+  }).join('') + extrasHTML(p) + '</div>';
+  $('main').innerHTML = h;
+}
+/* Combustible recibido por la Piazza (tomado de las salidas del Centro de Distribución) */
+/* ===== Canecas de reserva por Piazza ===== */
+const esCD = p => state.centros.some(c=>c.piazza===p);
+const PZ_CAN = () => PIAZZAS.filter(p=>!esCD(p));
+const resId = p => 'res-'+p.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\W+/g,'-').toLowerCase();
+const resDe = p => state.reservas.find(r=>r.id===resId(p)) || {id:resId(p), piazza:p, galCaneca:55, movs:[]};
+function canecasDe(p){
+  const r = resDe(p), movs = (r.movs||[]).slice().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora) || (a.t||0)-(b.t||0));
+  let n = 0; movs.forEach(m => { const c = num(m.cantidad); n = m.tipo==='Conteo' ? c : m.tipo==='Ingreso' ? n+c : n-c; m._saldo = n; });
+  return {r, n, gal: n*num(r.galCaneca), movs: movs.reverse()};
+}
+function canecasHTML(p){
+  const {r, n, gal, movs} = canecasDe(p), col = n<=0?'var(--rojo)':n<=2?'#f59e0b':'#6d4c41';
+  return `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 Canecas de reserva · ${esc(p)}</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn verde sm" onclick="formCaneca('${p}','Ingreso')">+ Ingreso de canecas</button>
+    <button class="btn rojo sm" onclick="formCaneca('${p}','Uso')">− Usar canecas</button><button class="btn sec sm" onclick="formCaneca('${p}','Conteo')">🔢 Conteo físico</button>
+    <button class="btn sec sm" onclick="formGalCaneca('${p}')">⚙ Galones por caneca</button></div></div>
+    <div class="canecas"><div><div class="cn" style="color:${col}">${n}</div><div class="res">caneca(s) en reserva</div></div>
+      <div><b style="font-size:18px">${fmt(gal)} gal</b><div class="res">${fmt(r.galCaneca)} gal por caneca · ${fmt(gal*GAL_L)} litros</div></div>
+      <div class="ic">${n>0?'<span>🛢</span>'.repeat(Math.min(n,40))+(n>40?` +${n-40}`:''):'<span style="font-size:13px;color:var(--rojo);font-weight:700">⚠ Sin canecas de reserva</span>'}</div></div>
+    <details style="margin-top:10px"${movs.length?'':' open'}><summary style="cursor:pointer;font-weight:700;font-size:13px">Historial de canecas (${movs.length})</summary>
+    <div class="tw" style="max-height:260px;overflow-y:auto;margin-top:6px"><table><tr><th>Fecha</th><th>Hora</th><th>Movimiento</th><th class="n">Canecas</th><th class="n">Saldo</th><th>Generador</th><th>Responsable</th><th>Observación</th><th></th></tr>
+    ${movs.length?movs.map(m=>`<tr><td>${fFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${m.tipo==='Ingreso'?'⬇ Ingreso':m.tipo==='Uso'?'⬆ Uso':'🔢 Conteo'}</td>
+      <td class="n"><b style="color:${m.tipo==='Ingreso'?'var(--verde)':m.tipo==='Uso'?'var(--rojo)':'inherit'}">${m.tipo==='Ingreso'?'+':m.tipo==='Uso'?'−':'='}${num(m.cantidad)}</b></td><td class="n">${m._saldo}</td>
+      <td>${esc(m.generador||'')}</td><td>${esc(m.responsable||'')}</td><td>${esc(m.obs||'')}</td>
+      <td><button class="btn sec sm" onclick="formCaneca('${p}','${m.tipo}','${m.id}')">✏</button> <button class="btn sec sm" onclick="borrarCaneca('${p}','${m.id}')">🗑</button></td></tr>`).join('')
+      :'<tr><td colspan="9" style="text-align:center;color:var(--sub)">Sin movimientos. Use <b>🔢 Conteo físico</b> para registrar cuántas canecas hay ahora.</td></tr>'}</table></div></details></div>`;
+}
+function formCaneca(p, tipo, mid){
+  const r = resDe(p), m = mid ? (r.movs||[]).find(x=>x.id===mid) : {fecha:hoy(), hora:ahora()}, v = k => esc(m[k] ?? '');
+  const tit = {Ingreso:'⬇ Ingreso de canecas', Uso:'⬆ Usar canecas de reserva', Conteo:'🔢 Conteo físico de canecas'}[tipo];
+  const gens = state.generadores.filter(g=>g.piazza===p);
+  abrir(`<h3>${tit} · ${esc(p)}</h3><div class="fm">
+    <label>${tipo==='Conteo'?'Canecas contadas (total actual) *':'Cantidad de canecas *'}<input id="cCant" type="number" min="0" step="1" value="${v('cantidad')}"></label>
+    ${tipo==='Uso'?`<label>Generador abastecido<select id="cGen"><option value="">—</option>${gens.map(g=>`<option value="${g.id}" ${m.generadorId===g.id?'selected':''}>${esc(genNombre(g))}</option>`).join('')}</select></label>`:''}
+    <label>Fecha<input id="cFecha" type="date" value="${v('fecha')}"></label><label>Hora<input id="cHora" type="time" value="${v('hora')}"></label>
+    <label>Responsable<input id="cResp" value="${v('responsable')}"></label>
+    <label style="grid-column:1/-1">Observación<input id="cObs" value="${v('obs')}"></label></div>
+    <div class="acciones"><button class="btn sec" onclick="verCanecas('${p}')">Cancelar</button><button class="btn" onclick="guardarCaneca('${p}','${tipo}','${mid||''}')">Guardar</button></div>`);
+}
+function guardarCaneca(p, tipo, mid){
+  const c = $('cCant').value; if(c==='' || num(c)<0 || (tipo!=='Conteo' && num(c)<=0)) return toast('Ingrese la cantidad de canecas');
+  const r = JSON.parse(JSON.stringify(resDe(p))); r.movs = r.movs||[];
+  const gid = $('cGen')?.value || '', g = state.generadores.find(x=>x.id===gid);
+  const m = {id: mid || uid(), tipo, cantidad: Math.round(num(c)), fecha: $('cFecha').value||hoy(), hora: $('cHora').value||ahora(),
+    generadorId: gid, generador: g?genNombre(g):'', responsable: $('cResp').value.trim(), obs: $('cObs').value.trim(), t: Date.now()};
+  const i = r.movs.findIndex(x=>x.id===m.id); if(i>=0) r.movs[i]=m; else r.movs.push(m);
+  put('reservas', r); render(); verCanecas(p); toast('Canecas actualizadas');
+}
+function borrarCaneca(p, mid){
+  if(!confirm('¿Borrar este movimiento de canecas?')) return;
+  const r = JSON.parse(JSON.stringify(resDe(p))); r.movs = (r.movs||[]).filter(x=>x.id!==mid); put('reservas', r); render(); verCanecas(p);
+}
+function formGalCaneca(p){
+  const r = resDe(p);
+  abrir(`<h3>⚙ Galones por caneca · ${esc(p)}</h3><div class="fm"><label>Capacidad de cada caneca (galones)<input id="cGal" type="number" min="0.1" step="0.1" value="${esc(r.galCaneca)}"></label></div>
+    <div class="acciones"><button class="btn sec" onclick="cerrar()">Cancelar</button><button class="btn" onclick="(()=>{const v=num($('cGal').value); if(v<=0) return toast('Valor inválido'); const r=JSON.parse(JSON.stringify(resDe('${p}'))); r.galCaneca=v; put('reservas',r); render(); verCanecas('${p}');})()">Guardar</button></div>`);
+}
+function extrasHTML(p){
+  const c = canecasDe(p), col = c.n<=0?'var(--rojo)':c.n<=2?'#f59e0b':'#6d4c41';
+  const ds = state.despachos.filter(d=>d.destino===p).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora)), tot = ds.reduce((s,d)=>s+num(d.galones),0);
+  return `${esCD(p)?'':`<div class="gen extra" onclick="verCanecas('${p}')">${c.n<=0?'<div class="tag">⚠ SIN RESERVA</div>':''}
+      <div><div class="ic">🛢</div><div class="tt">Reserva</div><div class="ub">Canecas de reserva</div></div>
+      <div><div class="big" style="color:${col}">${c.n} <span style="font-size:15px;font-weight:600">caneca(s)</span></div>
+      <div class="gal"><span>Total <b>${fmt(c.gal)} gal</b></span><span>${fmt(c.r.galCaneca)} gal c/u</span></div>
+      <div class="gal"><span>${c.movs[0]?`Último: ${fFecha(c.movs[0].fecha)} · ${esc(c.movs[0].tipo)} ${num(c.movs[0].cantidad)}`:'Sin movimientos'}</span><span></span></div>
+      <div class="mas">Ver detalle ›</div></div></div>`}
+    <div class="gen extra cr" onclick="verRecibido('${p}')">
+      <div><div class="ic">⛽</div><div class="tt">Desde el Centro de Distribución</div><div class="ub">Combustible recibido</div></div>
+      <div><div class="big" style="color:#1e88e5">${fmt(tot)} <span style="font-size:15px;font-weight:600">gal</span></div>
+      <div class="gal"><span><b>${ds.length}</b> entrega(s)</span><span></span></div>
+      <div class="gal"><span>${ds[0]?`Última: ${fFecha(ds[0].fecha)} ${esc(ds[0].hora)} · +${fmt(ds[0].galones)} gal`:'Sin entregas'}</span><span></span></div>
+      <div class="mas">Ver detalle ›</div></div></div>`;
+}
+const verCanecas = p => abrir(canecasHTML(p).replace('class="panel"','style="padding:4px 28px 0 0"').replace('<details style="margin-top:10px"','<details open style="margin-top:10px"'), true);
+const verRecibido = p => abrir(recibidoHTML(p).replace('class="panel"','style="padding:4px 28px 0 0"'), true);
+function recibidoHTML(p){
+  const ds = state.despachos.filter(d=>d.destino===p).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  const tot = ds.reduce((s,d)=>s+num(d.galones),0);
+  return `<div class="panel"><div class="top" style="margin-bottom:8px"><div><h3 style="margin:0">⛽ Combustible recibido desde el Centro de Distribución</h3>
+    <div class="res">${ds.length} entrega(s) · total recibido ${fmt(tot)} galones${ds[0]?` · última: ${fFecha(ds[0].fecha)} ${esc(ds[0].hora)}`:''}</div></div>
+    ${ds.length?`<button class="btn sec sm" onclick="excelRecibido('${p}')">📊 Excel</button>`:''}</div>
+    <div class="tw"><table><tr><th>Fecha</th><th>Hora</th><th>N° salida</th><th>Sale de</th><th>Tanque</th><th>Generador / bloque</th><th class="n">Galones</th><th>Nivel generador</th><th>Traslada</th><th>Líder entrega</th><th>Líder recibe</th><th></th></tr>
+    ${ds.length ? ds.map(d=>`<tr><td>${fFecha(d.fecha)}</td><td>${esc(d.hora)}</td><td>${esc(d.numero)}</td><td>${esc(d.origen)}</td><td>${esc(d.tanque||'')}</td>
+      <td>${esc(d.generador||'—')}</td><td class="n"><b style="color:var(--verde)">+${fmt(d.galones)}</b></td><td>${esc(d.nivelGenerador||'')}</td>
+      <td>${esc(d.traslada||'')}</td><td>${esc(d.liderEntrega||'')}</td><td>${esc(d.liderRecibe||'')}</td>
+      <td><button class="btn sec sm" title="Imprimir" onclick="imprimirDespacho('${d.id}')">🖨</button></td></tr>`).join('')
+      + `<tr><td colspan="6"><b>TOTAL RECIBIDO</b></td><td class="n"><b>${fmt(tot)}</b></td><td colspan="5"></td></tr>`
+      : '<tr><td colspan="12" style="text-align:center;color:var(--sub)">Esta Piazza aún no ha recibido combustible del Centro de Distribución</td></tr>'}</table></div></div>`;
+}
+function excelRecibido(p){
+  const rows = state.despachos.filter(d=>d.destino===p).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora)).map(d=>({'Fecha':fFecha(d.fecha),'Hora':d.hora,'N° salida':d.numero,
+    'Sale de':d.origen,'Tanque':d.tanque||'','Generador / bloque':d.generador||'','Galones':num(d.galones),'Nivel generador':d.nivelGenerador||'',
+    'Despacha':d.despacha||'','Traslada':d.traslada||'','Asistente supervisora':d.asistente||'','Líder entrega':d.liderEntrega||'','Líder recibe':d.liderRecibe||''}));
+  rows.push({'Fecha':'TOTAL','Galones':rows.reduce((s,r)=>s+r.Galones,0)});
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, hoja(rows), 'Recibido');
+  XLSX.writeFile(wb, `Combustible_recibido_${p.replace(/\s/g,'_')}_${hoy()}.xlsx`);
+}
+
+/* ===== Resumen de generadores ===== */
+function resumenGens(){
+  return PIAZZAS.flatMap(p => state.generadores.filter(g=>g.piazza===p).sort((a,b)=>((a.bloque||'')+a.ubicacion).localeCompare((b.bloque||'')+b.ubicacion)));
+}
+function reservaDe(p){
+  if(esCD(p)){ const cs = state.centros.filter(c=>c.piazza===p); return {tipo:'cd', gal: cs.reduce((s,c)=>s+num(c.galones),0), cap: cs.reduce((s,c)=>s+capCentro(c),0)}; }
+  const c = canecasDe(p); return {tipo:'can', gal:c.gal, n:c.n};
+}
+function reservaHTML(p){
+  const r = reservaDe(p);
+  return r.tipo==='cd' ? `<b style="color:#1e88e5">${fmt(r.gal)} gal</b><div style="font-size:10px;color:var(--sub)">Centro Dist. · cap. ${fmt(r.cap)}</div>`
+    : `<b style="color:${r.n<=0?'var(--rojo)':'#6d4c41'}">${fmt(r.gal)} gal</b><div style="font-size:10px;color:var(--sub)">🛢 ${r.n} caneca(s)</div>`;
+}
+function renderResumen(){
+  const gs = resumenGens();
+  const cap = gs.reduce((s,g)=>s+num(g.capacidad),0), disp = gs.reduce((s,g)=>s+galRest(g),0), bajos = gs.filter(g=>tieneNivel(g)&&num(g.nivel)<UMBRAL).length, sin = gs.filter(g=>!tieneNivel(g)).length;
+  let h = `<div class="top"><div><h2>📋 Resumen de generadores – Piazzas</h2>
+    <div class="res">${gs.length} generadores · capacidad total ${fmt(cap)} gal · combustible disponible ≈ ${fmt(disp)} gal${bajos?` · <b style="color:var(--rojo)">${bajos} por abastecer</b>`:''}${sin?` · ${sin} sin registro de nivel`:''}</div></div>
+    <div style="display:flex;gap:6px"><button class="btn verde" onclick="excelResumen()">📊 Excel</button><button class="btn sec" onclick="imprimirResumen()">🖨 Imprimir</button></div></div>
+  <div class="panel rsmBox" style="margin-top:0;padding:0;overflow:hidden"><div class="tw"><table class="tres rsm">
+    <tr><th>PIAZZA</th><th>BLOQUE</th><th>UBICACIÓN</th><th class="n">CAPACIDAD MÁX. TANQUE (gal)</th><th>NIVEL DE COMBUSTIBLE</th><th>RESERVA DE COMBUSTIBLE</th></tr>`;
+  PIAZZAS.forEach(p => {
+    const gp = gs.filter(g=>g.piazza===p); if(!gp.length) return;
+    gp.forEach((g,i) => {
+      const sn = tieneNivel(g), n = num(g.nivel), au = autonomiaActual(g);
+      h += `<tr onclick="verGen('${g.id}')" style="cursor:pointer">
+        ${i===0?`<td rowspan="${gp.length}" class="pz">${esc(p.toUpperCase())}</td>`:''}
+        <td style="text-align:center">${esc(g.bloque||'-')}</td><td style="white-space:normal;min-width:200px;max-width:320px">${esc(g.ubicacion)}</td>
+        <td class="n cap">${fmt(g.capacidad)}</td>
+        <td>${sn?`<div class="gauge" style="height:18px"><div class="f" style="width:${n}%;background:${color(n)}"></div><span>${n}% · ${fmt(galRest(g))} gal</span></div>${n<UMBRAL?'<div style="color:var(--rojo);font-size:11px;font-weight:700;margin-top:2px">⚠ ABASTECER</div>':''}`:'<span style="color:var(--sub)">Sin registro</span>'}</td>
+        ${i===0?`<td rowspan="${gp.length}" class="n" style="text-align:center">${reservaHTML(p)}</td>`:''}</tr>`;
+    });
+  });
+  h += `<tr class="tot"><td colspan="3">TOTAL</td><td class="n">${fmt(cap)}</td><td>≈ ${fmt(disp)} gal disponibles</td><td style="text-align:center">${fmt(PIAZZAS.reduce((s,p)=>s+reservaDe(p).gal,0))} gal en reserva</td></tr></table></div></div>
+  <div class="nota" style="margin-top:8px">Haga clic en una fila para ver el generador y registrar su nivel. El nivel se actualiza con el registro diario y con las salidas del Centro de Distribución.</div>`;
+  $('main').innerHTML = h;
+}
+const filaRes = g => ({'Piazza':g.piazza,'Bloque':g.bloque||'-','Ubicación':g.ubicacion,'Capacidad máx. tanque (gal)':num(g.capacidad),
+  'Nivel de combustible (%)':tieneNivel(g)?num(g.nivel):'Sin registro','Galones disponibles':tieneNivel(g)?Math.round(galRest(g)*100)/100:'',
+  'Reserva Piazza (gal)':g.piazza?Math.round(reservaDe(g.piazza).gal*100)/100:'','Tipo de reserva':g.piazza?(esCD(g.piazza)?'Centro de Distribución':`${reservaDe(g.piazza).n} caneca(s)`):''});
+function excelResumen(){
+  const rows = resumenGens().map(filaRes);
+  rows.push({'Piazza':'TOTAL','Capacidad máx. tanque (gal)':rows.reduce((s,r)=>s+r['Capacidad máx. tanque (gal)'],0),'Galones disponibles':rows.reduce((s,r)=>s+(num(r['Galones disponibles'])),0),'Reserva Piazza (gal)':PIAZZAS.reduce((s,p)=>s+reservaDe(p).gal,0)});
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, hoja(rows), 'Resumen');
+  XLSX.writeFile(wb, `Resumen_Generadores_${hoy()}.xlsx`);
+}
+function imprimirResumen(){
+  const rows = resumenGens().map(filaRes), cols = Object.keys(filaRes({}));
+  ventanaImp('Resumen de generadores', `<h2>RESUMEN DE GENERADORES – PIAZZAS</h2><div class="s">Generado ${new Date().toLocaleString('es-EC')}</div>
+  <table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>${rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</table>`);
+}
+
+/* ===== Reporte diario ===== */
+let repFecha = null;
+/* Estado del generador al cierre de una fecha (según sus registros hasta ese día) */
+function genAl(g, f){
+  const h = hist(g).filter(r=>r.fecha<=f);
+  const x = {...g, historial:h}; delete x.nivel; ['horometro','aceite','bateria','refrigerante','estado','ultimoRegistro'].forEach(k=>delete x[k]);
+  if(h.length) recalc(x);
+  x.regDia = h.filter(r=>r.fecha===f);
+  return x;
+}
+const MALOS = ['Bajo','Baja','Requiere cambio','Fuga','Con novedad','En mantenimiento','Fuera de servicio'];
+function datosReporte(f){
+  const gens = resumenGens().map(g=>genAl(g,f));
+  const sal = state.despachos.filter(d=>d.fecha===f).sort((a,b)=>a.hora.localeCompare(b.hora));
+  const rec = state.ingresos.filter(i=>i.fecha===f).sort((a,b)=>a.hora.localeCompare(b.hora));
+  const cs = state.centros.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const nov = [];
+  gens.forEach(g=>{
+    const n = `${g.piazza} · ${genNombre(g)}`;
+    if(tieneNivel(g) && num(g.nivel)<UMBRAL) nov.push({t:'⛽ Abastecer', d:`${n}: ${num(g.nivel)}% (quedan ${fmt(galRest(g))} gal)`, lab:n, pct:num(g.nivel), gal:galRest(g), cap:num(g.capacidad)});
+    ['aceite','bateria','refrigerante','estado'].forEach(k=>{ if(MALOS.includes(g[k])) nov.push({t:'🔧 '+({aceite:'Aceite',bateria:'Batería',refrigerante:'Refrigerante',estado:'Estado'})[k], d:`${n}: ${g[k]}`}); });
+  });
+  gens.forEach(g => mantPend(g).filter(m=>m.fecha<=f).forEach(m => nov.push({t:`🔧 ${m.tipo}`, d:`${g.piazza} · ${genNombre(g)} — ${m.pieza}: ${m.descripcion} (${m.estado}, desde ${fFecha(m.fecha)})`})));
+  const sinReg = gens.filter(g=>!g.regDia.length);
+  if(sinReg.length) nov.push({t:'⏳ Sin registro', d:`${sinReg.length} generador(es) sin registro diario el ${fFecha(f)}: ${sinReg.map(g=>`${g.piazza}${g.bloque?' '+g.bloque:''}`).join(', ')}`});
+  return {f, gens, sal, rec, cs, nov,
+    k:{total:gens.length, conReg:gens.filter(g=>g.regDia.length).length, bajos:gens.filter(g=>tieneNivel(g)&&num(g.nivel)<UMBRAL).length,
+       galGen:gens.reduce((s,g)=>s+galRest(g),0), capGen:gens.reduce((s,g)=>s+num(g.capacidad),0),
+       galCD:cs.reduce((s,c)=>s+num(c.galones),0), capCD:cs.reduce((s,c)=>s+capCentro(c),0),
+       salidas:sal.reduce((s,d)=>s+num(d.galones),0), recargas:rec.reduce((s,i)=>s+num(i.galones),0)}};
+}
+function renderReporte(){
+  const f = repFecha || hoy(), R = datosReporte(f), k = R.k;
+  const kpi = (t,v,sub,c) => `<div class="kpi" ${c?`style="border-top-color:${c}"`:''}><div class="kt">${t}</div><div class="kv">${v}</div><div class="ks">${sub||''}</div></div>`;
+  let h = `<div class="top"><div><h2>📄 Reporte diario de generadores y combustible</h2><div class="res">Piazzas · Centro de Distribución</div></div>
+    <div class="filtros" style="margin:0"><label>Fecha del reporte<input type="date" value="${f}" onchange="repFecha=this.value;renderReporte()"></label>
+    <button class="btn verde" onclick="excelReporte()">📊 Excel</button><button class="btn rojo" onclick="pdfReporte()">📄 PDF</button><button class="btn sec" onclick="imprimirReporte()">🖨 Imprimir</button></div></div>
+  <div id="repCont"><div class="rephead"><div><b style="font-size:20px">REPORTE DIARIO DE GENERADORES Y COMBUSTIBLE</b><br>Piazzas · Centro de Distribución</div>
+    <div style="text-align:right"><b>Fecha: ${fFecha(f)}</b><br><span style="font-size:12px">Generado ${new Date().toLocaleString('es-EC')}</span></div></div>
+  <div class="kpis">
+    ${kpi('Generadores registrados hoy', `${k.conReg} / ${k.total}`, k.total-k.conReg?`${k.total-k.conReg} pendientes`:'Todos registrados', k.conReg===k.total?'#2e7d32':'#f59e0b')}
+    ${kpi('Por abastecer (<80%)', k.bajos, k.bajos?'Requieren combustible':'Ninguno', k.bajos?'#c62828':'#2e7d32')}
+    ${kpi('Combustible en generadores', fmt(k.galGen)+' gal', `de ${fmt(k.capGen)} gal de capacidad`)}
+    ${kpi('Combustible almacenado', fmt(k.galCD)+' gal', `de ${fmt(k.capCD)} gal en centros`, '#1e88e5')}
+    ${kpi('Despachado en el día', fmt(k.salidas)+' gal', `${R.sal.length} salida(s)`, '#c62828')}
+    ${kpi('Recargado en el día', fmt(k.recargas)+' gal', `${R.rec.length} recarga(s)`, '#2e7d32')}
+  </div>`;
+  h += `<div class="panel"><h3>🔌 Estado de generadores al ${fFecha(f)}</h3><div class="tw"><table class="tres"><tr><th>Piazza</th><th>Bloque</th><th>Ubicación</th><th>Cap. (gal)</th><th style="min-width:150px">Nivel</th><th>Reserva de combustible</th><th>Horómetro</th><th>Encendido en el día</th><th>Aceite</th><th>Batería</th><th>Refrigerante</th><th>Estado</th><th>Responsable</th></tr>
+    ${R.gens.map((g,gi)=>{ const sn=tieneNivel(g), n=num(g.nivel), au=autonomiaActual(g), r=g.regDia[g.regDia.length-1];
+      const prim = gi===0 || R.gens[gi-1].piazza!==g.piazza; let span=0; if(prim){ for(let j=gi;j<R.gens.length&&R.gens[j].piazza===g.piazza;j++) span++; }
+      return `<tr onclick="verGen('${g.id}')" style="cursor:pointer"><td><b>${esc(g.piazza)}</b></td><td>${esc(g.bloque||'-')}</td><td style="white-space:normal;min-width:180px">${esc(g.ubicacion)}</td><td class="n">${fmt(g.capacidad)}</td>
+      <td>${sn?`<div class="gauge" style="height:18px"><div class="f" style="width:${n}%;background:${color(n)}"></div><span>${n}% · ${fmt(galRest(g))} gal</span></div>`:'<span style="color:var(--sub)">Sin registro</span>'}</td>
+      ${prim?`<td rowspan="${span}" style="text-align:center;background:#fff">${reservaHTML(g.piazza)}</td>`:''}<td>${fmtHor(g.horometro)}</td><td>${usoPorDia(g)[f]!==undefined?minChip(usoPorDia(g)[f]):'—'}</td><td>${chip('aceite',g.aceite)}</td><td>${chip('bateria',g.bateria)}</td><td>${chip('refrigerante',g.refrigerante)}</td><td>${chip('estado',g.estado)}</td>
+      <td>${esc(r?.responsable||'')}</td></tr>`; }).join('')}
+    </table></div></div>`;
+  h += `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 Combustible almacenado en Centros de Distribución <span style="font-weight:400;font-size:12px;color:var(--sub)">(saldo actual)</span></h3>
+    <div><b style="font-size:20px;color:var(--azul2)">${fmt(k.galCD)}</b> <span class="res">de ${fmt(k.capCD)} gal en total</span></div></div>
+    ${leyendaMat()}<div class="grid gridcd">${R.cs.map(c=>`<div class="centro">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
+      <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(capCentro(c))} gal disponibles</div></div></div>
+      <div class="tqs">${tqs(c).map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div></div>`).join('')}</div></div>`;
+  h += `<div class="panel"><h3>⬆ Salidas de combustible del día</h3><div class="tw"><table><tr><th>N°</th><th>Hora</th><th>Sale de</th><th>Tanque</th><th>Destino</th><th>Generador</th><th class="n">Galones</th><th>Nivel generador</th><th>Traslada</th><th>Recibe</th></tr>
+    ${R.sal.length?R.sal.map(d=>`<tr><td>${esc(d.numero)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.tanque||'')}</td><td>${esc(d.destino)}</td><td>${esc(d.generador||'')}</td><td class="n"><b>${fmt(d.galones)}</b></td><td>${esc(d.nivelGenerador||'')}</td><td>${esc(d.traslada||'')}</td><td>${esc(d.liderRecibe||'')}</td></tr>`).join('')+`<tr><td colspan="6"><b>TOTAL</b></td><td class="n"><b>${fmt(k.salidas)}</b></td><td colspan="3"></td></tr>`:'<tr><td colspan="10" style="text-align:center;color:var(--sub)">Sin salidas</td></tr>'}</table></div></div>`;
+  h += `<div class="panel"><h3>⬇ Recargas de tanques del día</h3><div class="tw"><table><tr><th>Hora</th><th>Centro</th><th>Tanque</th><th class="n">Galones</th><th>Nivel tanque</th><th>Proveedor</th><th>Factura / Guía</th><th>Recibe</th></tr>
+    ${R.rec.length?R.rec.map(i=>`<tr><td>${esc(i.hora)}</td><td>${esc(i.centro)}</td><td>${esc(i.tanque||'')}</td><td class="n"><b>${fmt(i.galones)}</b></td><td>${i.antes!==undefined?`${fmt(i.antes)} → ${fmt(i.despues)}`:''}</td><td>${esc(i.proveedor||'')}</td><td>${esc(i.factura||'')}</td><td>${esc(i.recibe||'')}</td></tr>`).join('')+`<tr><td colspan="3"><b>TOTAL</b></td><td class="n"><b>${fmt(k.recargas)}</b></td><td colspan="4"></td></tr>`:'<tr><td colspan="8" style="text-align:center;color:var(--sub)">Sin recargas</td></tr>'}</table></div></div>`;
+  h += `<div class="fir repfir"><div><b>Elaborado por</b></div><div><b>Revisado por</b></div></div></div>`;
+  $('main').innerHTML = h;
+}
+/* Novedades con gráfico de barras */
+function barraNov(n){
+  const p = Math.max(0, Math.min(100, n.pct)), w = Math.max(p, 0.5);
+  return `<div class="nbar"><div class="nlab">${esc(n.lab)}</div>
+    <div class="ntrack"><div class="nfill" style="width:${w}%;background:${color(p)}"></div>
+      <div class="nmark" style="left:25%"></div><div class="nmark" style="left:50%"></div>
+      <span class="nval">${Math.round(p)}% · ${fmt(n.gal)} / ${fmt(n.cap)} gal</span></div></div>`;
+}
+function novedadesHTML(nov){
+  const graf = (tit, items, nota) => items.length ? `<div class="ngrupo"><div class="ntit">${tit} <span>(${items.length})</span></div>${items.sort((a,b)=>a.pct-b.pct).map(barraNov).join('')}
+    <div class="nesc"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>${nota?`<div class="nota" style="margin-top:6px">${nota}</div>`:''}</div>` : '';
+  const tanques = nov.filter(n=>n.t.includes('Tanque bajo')), gens = nov.filter(n=>n.t.includes('Abastecer')), otros = nov.filter(n=>n.pct===undefined);
+  return `<div class="ngrid">${graf('🛢 Tanques de distribución bajos (≤25%)', tanques)}${graf('⛽ Generadores por abastecer (<80%)', gens)}</div>
+    ${otros.length?`<div class="tw" style="margin-top:10px"><table><tr><th>Tipo</th><th>Detalle</th></tr>${otros.map(n=>`<tr><td><b>${n.t}</b></td><td style="white-space:normal">${esc(n.d)}</td></tr>`).join('')}</table></div>`:''}`;
+}
+/* Filas para exportar */
+function filasReporte(R){
+  return {
+    resumen:[{'Indicador':'Fecha del reporte','Valor':fFecha(R.f)},{'Indicador':'Generadores con registro del día','Valor':`${R.k.conReg} de ${R.k.total}`},
+      {'Indicador':'Generadores por abastecer (<80%)','Valor':R.k.bajos},{'Indicador':'Combustible en generadores (gal)','Valor':Math.round(R.k.galGen*100)/100},
+      {'Indicador':'Capacidad total generadores (gal)','Valor':R.k.capGen},{'Indicador':'Combustible almacenado en centros (gal)','Valor':R.k.galCD},
+      {'Indicador':'Capacidad de almacenamiento (gal)','Valor':R.k.capCD},{'Indicador':'Despachado en el día (gal)','Valor':R.k.salidas},{'Indicador':'Recargado en el día (gal)','Valor':R.k.recargas},
+      {'Indicador':'Generado','Valor':new Date().toLocaleString('es-EC')}],
+    gens:R.gens.map(g=>{ const r=g.regDia[g.regDia.length-1]; return {'Piazza':g.piazza,'Bloque':g.bloque||'-','Ubicación':g.ubicacion,'Capacidad (gal)':num(g.capacidad),
+      'Nivel (%)':tieneNivel(g)?num(g.nivel):'Sin registro','Galones':tieneNivel(g)?Math.round(galRest(g)*100)/100:'',
+      'Reserva Piazza (gal)':Math.round(reservaDe(g.piazza).gal*100)/100,'Tipo de reserva':esCD(g.piazza)?'Centro de Distribución':`${reservaDe(g.piazza).n} caneca(s)`,'Horómetro':g.horometro?fmtHor(g.horometro):'','Encendido en el día':usoPorDia(g)[R.f]!==undefined?fmtHM(usoPorDia(g)[R.f]):'','Aceite':g.aceite||'','Batería':g.bateria||'','Refrigerante':g.refrigerante||'','Estado':g.estado||'','Responsable':r?.responsable||''}; }),
+    tanques:R.cs.flatMap(c=>tqs(c).map((t,i)=>({'Centro':c.nombre,'Tanque':i+1,'Material':t.material,'Capacidad (gal)':num(t.capacidad),'Galones':num(t.galones),
+      'Nivel (%)':num(t.capacidad)?Math.round(num(t.galones)/num(t.capacidad)*100):0,'En uso':t.enUso===false?'No':'Sí'}))),
+    salidas:R.sal.map(d=>({'N°':d.numero,'Hora':d.hora,'Sale de':d.origen,'Tanque':d.tanque||'','Destino':d.destino,'Generador':d.generador||'','Galones':num(d.galones),'Nivel generador':d.nivelGenerador||'','Traslada':d.traslada||'','Recibe':d.liderRecibe||''})),
+    recargas:R.rec.map(i=>({'Hora':i.hora,'Centro':i.centro,'Tanque':i.tanque||'','Galones':num(i.galones),'Antes (gal)':i.antes??'','Después (gal)':i.despues??'','Proveedor':i.proveedor||'','Factura / Guía':i.factura||'','Recibe':i.recibe||''})),
+    nov:R.nov.map(n=>({'Tipo':n.t.replace(/^\S+\s/,''),'Detalle':n.d}))
+  };
+}
+function excelReporte(){
+  const R = datosReporte(repFecha||hoy()), F = filasReporte(R), wb = XLSX.utils.book_new();
+  [['Resumen',F.resumen],['Generadores',F.gens],['Almacenamiento',F.tanques],['Salidas',F.salidas],['Recargas',F.recargas],['Canecas reserva',PZ_CAN().map(p=>{const c=canecasDe(p);return {'Piazza':p,'Canecas':c.n,'Gal por caneca':num(c.r.galCaneca),'Total galones':c.gal};})]]
+    .forEach(([n,rows])=>XLSX.utils.book_append_sheet(wb, hoja(rows.length?rows:[{'Sin datos':''}]), n));
+  XLSX.writeFile(wb, `Reporte_Diario_Generadores_${R.f}.xlsx`);
+}
+/* Hojas de estilo de la app, para que el reporte impreso/PDF se vea igual que en pantalla */
+const estilosApp = () => [...document.querySelectorAll('style')].map(x=>x.textContent).join('\n');
+function imprimirReporte(){
+  const cont = $('repCont'); if(!cont) return;
+  const w = window.open('','_blank'); if(!w) return toast('Permita ventanas emergentes para imprimir');
+  w.document.write(`<html><head><title>Reporte diario ${fFecha(repFecha||hoy())}</title><style>${estilosApp()}
+    @page{size:A4 landscape;margin:8mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{background:#fff;margin:0;zoom:.62} .rephead{display:flex!important} .repfir{display:flex!important}
+    .panel,.kpis,.ngrupo{break-inside:avoid} tr{break-inside:avoid} .tw{overflow:visible}
+    .tres tr:hover td{background:inherit}</style></head><body><main class="full" style="padding:0">${cont.outerHTML}</main>
+    <script>setTimeout(()=>print(),500)<\/script></body></html>`);
+  w.document.close();
+}
+async function pdfReporte(){
+  const cont = $('repCont'); if(!cont) return;
+  if(!window.html2canvas || !window.jspdf){ toast('No se pudo cargar el generador de PDF (revise la conexión a internet)'); return; }
+  toast('Generando PDF…');
+  cont.classList.add('modoPdf');
+  const { jsPDF } = window.jspdf, doc = new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+  const PW = 297, PH = 210, M = 8, W = PW - 2*M;
+  let y = M;
+  const bloques = [...cont.children];
+  try{
+    for(const el of bloques){
+      const cv = await html2canvas(el, {scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth: Math.max(1400, cont.scrollWidth)});
+      const ratio = W / cv.width, hmm = cv.height * ratio;
+      if(hmm <= PH - 2*M){
+        if(y + hmm > PH - M){ doc.addPage(); y = M; }
+        doc.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', M, y, W, hmm); y += hmm + 4;
+      } else {
+        // bloque más alto que una página: se corta en porciones
+        const altoPag = Math.floor((PH - 2*M) / ratio); let sy = 0;
+        if(y > M){ doc.addPage(); y = M; }
+        while(sy < cv.height){
+          const h = Math.min(altoPag, cv.height - sy), c2 = document.createElement('canvas');
+          c2.width = cv.width; c2.height = h; c2.getContext('2d').drawImage(cv, 0, sy, cv.width, h, 0, 0, cv.width, h);
+          doc.addImage(c2.toDataURL('image/jpeg', 0.92), 'JPEG', M, M, W, h*ratio); sy += h;
+          if(sy < cv.height){ doc.addPage(); } else { y = M + h*ratio + 4; }
+        }
+      }
+    }
+    doc.save(`Reporte_Diario_Generadores_${repFecha||hoy()}.pdf`);
+  }catch(e){ console.error(e); toast('Error al generar el PDF'); }
+  finally{ cont.classList.remove('modoPdf'); }
+}
+
+/* ===== Selector de nivel con cálculo automático de galones ===== */
+function sliderHTML(val, cap){
+  return `<div class="nivelbox"><div class="nivelv" id="nv" style="color:${color(val)}">${val}%</div>
+    <input type="range" id="fNivel" data-cap="${num(cap)}" min="1" max="100" step="1" value="${val}" oninput="onNivel()">
+    <div class="marcas"><span>1%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+    <div class="quedan" id="qd"></div>
+    <div class="aviso50" id="av50">⚠ Nivel menor a 80%: se activará la alarma de abastecimiento.</div></div>`;
+}
+function onNivel(){
+  const s = $('fNivel'); if(!s) return;
+  const v = +s.value, cap = $('fCap') ? num($('fCap').value) : num(s.dataset.cap);
+  $('nv').textContent = v+'%'; $('nv').style.color = color(v);
+  $('qd').innerHTML = cap>0 ? `Quedan <b style="color:${color(v)}">${fmt(cap*v/100)} galones</b> de ${fmt(cap)} · faltan ${fmt(cap*(100-v)/100)} gal para llenar` : '<span style="color:var(--sub)">Ingrese la capacidad del tanque para calcular los galones</span>';
+  $('av50').style.display = v<UMBRAL ? 'block' : 'none';
+}
+function onCap(){ const c=num($('fCap').value); $('fCapL').value = c ? fmt(c*GAL_L) : ''; onNivel(); }
+
+/* ===== Formulario generador (ficha técnica) ===== */
+function formGen(id){
+  const g = id ? state.generadores.find(x=>x.id===id) : {nivel:100, fuel:'Diésel'};
+  fotoTmp = g.foto || null;
+  const v = k => esc(g[k] ?? '');
+  abrir(`<h3>${id?'Editar':'Agregar'} generador · ${esc(id?g.piazza:tabAct)}</h3>
+  <div class="fm">
+    <div class="sep">Datos del generador</div>
+    <label>Bloque<input id="fBloque" value="${v('bloque')}" placeholder="Ej.: Bloque A"></label>
+    <label>Sector / Ubicación *<input id="fUb" value="${v('ubicacion')}" placeholder="Ej.: Atrás de la administración"></label>
+    <label>Placa del motor<input id="fPlaca" value="${v('placa')}"></label>
+    ${id?'':`<label>Horómetro (horas y minutos)${horInput('fHor', g.horometro)}</label>`}
+    <label>Marca<input id="fMarca" value="${v('marca')}"></label>
+    <label>Modelo<input id="fModelo" value="${v('modelo')}"></label>
+    <label>Serial<input id="fSerial" value="${v('serial')}"></label>
+    <label>Año<input id="fAnio" type="number" min="1950" max="2100" value="${v('anio')}"></label>
+    <label>Power (kVA)<input id="fPower" value="${v('power')}"></label>
+    <label>Speed (RPM)<input id="fSpeed" value="${v('speed')}"></label>
+    <label>KW<input id="fKw" value="${v('kw')}"></label>
+    <label>Fuel type<select id="fFuel">${FUEL.map(f=>`<option ${f===g.fuel?'selected':''}>${f}</option>`).join('')}</select></label>
+    <label>Batería<input id="fBatSpec" value="${v('bateriaSpec')}" placeholder="Ej.: 12V 100Ah"></label>
+    <label>Capacidad del tanque (galones) *<input id="fCap" type="number" min="1" step="0.1" value="${v('capacidad')}" oninput="onCap()"></label>
+    <label>Capacidad del tanque (litros)<input id="fCapL" readonly></label>
+    <label>Consumo aproximado por hora<input id="fCons" value="${v('consumo')}" placeholder="Ej.: 11 – 11,5 galones"></label>
+    <label>Autonomía con tanque lleno<input id="fAut" value="${v('autonomia')}" placeholder="Ej.: Entre 7,5 – 8 horas"></label>
+    <label class="full">Otros datos de placa <span style="font-weight:400">(uno por línea, formato Dato: Valor)</span><textarea id="fExtra" rows="4">${v('placaExtra')}</textarea></label>
+    ${id ? '<div class="full nota">El nivel de combustible, horómetro, aceite, batería, refrigerante y estado general se actualizan con el <b>Registro diario</b>.</div>' : `
+    <div class="sep">Nivel de combustible</div>
+    <div class="full">${sliderHTML(100, g.capacidad)}</div>
+    <div class="sep">Estado inicial</div>
+    <label>Estado del aceite${selHTML('fAce','aceite','Bueno')}</label>
+    <label>Estado de la batería${selHTML('fBat','bateria','Buena')}</label>
+    <label>Refrigerante${selHTML('fRef','refrigerante','Normal')}</label>
+    <label>Estado general${selHTML('fEst','estado','Operativo')}</label>`}
+    <label class="full">Foto de ficha técnica<input type="file" accept="image/*" onchange="cargarFoto(this)"><div class="fotoprev" id="fPrev">${fotoTmp?`<img src="${fotoTmp}" onclick="verImg(this.src)"><button class="btn sm rojo" style="margin-top:6px" onclick="quitarFoto()">Quitar foto</button>`:''}</div></label>
+    <label class="full">Observaciones<textarea id="fObs" rows="2">${v('obs')}</textarea></label>
+  </div>
+  <div class="err" id="fErr"></div>
+  <div class="acciones"><button class="btn sec" onclick="${id?`verGen('${id}')`:'cerrar()'}">Cancelar</button><button class="btn verde" onclick="guardarGen('${id||''}')">💾 Guardar</button></div>`);
+  onCap();
+}
+function quitarFoto(){ fotoTmp=null; $('fPrev').innerHTML=''; }
+function comprimir(file,max=1200,q=0.7){
+  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>{ const img=new Image(); img.onload=()=>{
+    const s=Math.min(1,max/Math.max(img.width,img.height)), c=document.createElement('canvas');
+    c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',q)); };
+    img.onerror=rej; img.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); });
+}
+async function cargarFoto(inp){
+  if(!inp.files[0]) return;
+  try{ fotoTmp = await comprimir(inp.files[0]);
+    $('fPrev').innerHTML = `<img src="${fotoTmp}" onclick="verImg(this.src)"><button class="btn sm rojo" style="margin-top:6px" onclick="quitarFoto()">Quitar foto</button>`;
+  }catch(e){ toast('No se pudo cargar la imagen'); }
+}
+function guardarGen(id){
+  const ub=$('fUb').value.trim(), cap=num($('fCap').value);
+  if(!ub || cap<=0){ $('fErr').textContent='Complete el sector/ubicación y la capacidad en galones.'; return; }
+  const prev = id ? state.generadores.find(x=>x.id===id) : null;
+  const g = Object.assign({}, prev || {id:uid(), piazza:tabAct, creado:Date.now(), historial:[]}, {
+    ubicacion:ub, placa:$('fPlaca').value.trim(), marca:$('fMarca').value.trim(), modelo:$('fModelo').value.trim(),
+    serial:$('fSerial').value.trim(), anio:$('fAnio').value.trim(), power:$('fPower').value.trim(), speed:$('fSpeed').value.trim(),
+    kw:$('fKw').value.trim(), fuel:$('fFuel').value, bateriaSpec:$('fBatSpec').value.trim(), capacidad:cap,
+    bloque:$('fBloque').value.trim(), consumo:$('fCons').value.trim(), autonomia:$('fAut').value.trim(), placaExtra:$('fExtra').value.trim(),
+    obs:$('fObs').value.trim(), foto:fotoTmp, actualizado:Date.now()
+  });
+  if(!prev){
+    const nivel=+$('fNivel').value, hor=leerHor('fHor');
+    if(hor===null){ $('fErr').textContent='Los minutos del horómetro deben estar entre 0 y 59.'; return; }
+    g.historial = [{id:uid(), fecha:hoy(), hora:ahora(), nivel, horometro:hor, aceite:$('fAce').value, bateria:$('fBat').value,
+      refrigerante:$('fRef').value, estado:$('fEst').value, responsable:'', nota:'Registro inicial', t:Date.now()}];
+  }
+  recalc(g);
+  put('generadores', g); render(); revisarAlarma();
+  if(prev) verGen(g.id); else cerrar();
+  toast('Generador guardado');
+}
+
+/* ===== Detalle generador ===== */
+function verGen(id){
+  const g = state.generadores.find(x=>x.id===id); if(!g) return;
+  const sn = tieneNivel(g), n = num(g.nivel), h = hist(g).reverse(), au = autonomiaActual(g), uso = usoRegistros(g);
+  const d = (l,v) => `<div><b>${l}</b>${v!==undefined&&v!==''&&v!==null?esc(v):'—'}</div>`;
+  const extra = String(g.placaExtra||'').split('\n').map(x=>x.trim()).filter(Boolean).map(x=>{ const i=x.indexOf(':'); return i>0?[x.slice(0,i),x.slice(i+1)]:['',x]; });
+  abrir(`<div id="tituloGen"><h3 style="padding-right:30px">🔌 ${g.bloque?esc(g.bloque)+' · ':''}Generador ubicado en ${esc(g.ubicacion)} · ${esc(g.piazza)}
+    <button class="btn sec sm" title="Editar nombre" style="vertical-align:middle;margin-left:6px" onclick="editarTitulo('${g.id}')">✏ Editar</button></h3></div>
+  ${sn?`<div class="gauge" style="height:30px"><div class="f" style="width:${n}%;background:${color(n)}"></div><span style="font-size:14px">Combustible ${n}%</span></div>
+  <div class="quedan">Quedan <b style="color:${color(n)}">${fmt(galRest(g))} galones</b> de ${fmt(g.capacidad)} (${fmt(galRest(g)*GAL_L)} litros) · faltan ${fmt(num(g.capacidad)-galRest(g))} gal para llenar
+  ${au!==null?`<br>⚡ Autonomía aproximada con el combustible actual: <b>${fmt(au)} horas</b> (a ${fmt(consumoMax(g))} gal/h)`:''}</div>`
+  :`<div class="aviso50" style="display:block;background:#fff4e0;color:#b7791f">Sin registro de nivel de combustible. Use <b>+ Nuevo registro diario</b> para ingresar el nivel actual.</div>`}
+  ${sn&&n<UMBRAL?'<div class="aviso50" style="display:block;margin:8px 0">⚠ Requiere abastecimiento de combustible</div>':''}
+  ${(()=>{ const pr = problemas(g); return pr.length?`<div class="alertaProb"><b>🔴 Problema reportado (${pr.length})</b><ul>${pr.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''; })()}
+  ${(()=>{ const u = h[0]; if(!u) return '';
+    const c = (l,v,k)=>`<div class="${k&&MALOS.includes(v)?'mal':''}"><b>${l}</b>${k?chip(k,v):(v!==undefined&&v!==''&&v!==null?esc(v):'—')}</div>`;
+    return `<div class="panel" style="margin-top:10px"><h3 style="margin:0">📝 Último registro diario <span style="font-weight:400;font-size:12px;color:var(--sub)">${fFecha(u.fecha)} ${esc(u.hora||'')}</span></h3>
+    <div class="ultreg">
+      <div><b>Nivel de combustible</b><span style="color:${color(u.nivel)};font-weight:800">${num(u.nivel)}%</span> · ${fmt(num(g.capacidad)*num(u.nivel)/100)} gal</div>
+      <div><b>Horómetro</b>${u.horometro?fmtHor(u.horometro):'—'}</div>
+      <div><b>Trabajó hoy</b>${fmtHM(usoPorDia(g)[hoy()]??0)}</div>
+      ${c('Estado del aceite',u.aceite,'aceite')}${c('Batería',u.bateria,'bateria')}${c('Refrigerante',u.refrigerante,'refrigerante')}${c('Estado general',u.estado,'estado')}
+      ${c('Responsable',u.responsable)}
+      <div class="w"><b>Observación</b>${esc(u.nota||'')||'—'}</div>
+    </div></div>`; })()}
+  ${usoHTML(g)}
+  ${mantHTML(g)}
+  <details class="panel ficha"><summary>📋 Ficha técnica / datos del generador (clic para ver)</summary>
+  <div class="det det3" style="margin-top:10px">
+    ${d('Sector',g.ubicacion)}${d('Placa del motor',g.placa)}${d('Marca',g.marca)}${d('Modelo',g.modelo)}${d('Serial',g.serial)}${d('Año',g.anio)}
+    ${d('Power (kVA)',g.power)}${d('Speed (RPM)',g.speed)}${d('KW',g.kw)}${d('Fuel type',g.fuel)}${d('Batería',g.bateriaSpec)}
+    ${d('Capacidad del tanque',fmt(g.capacidad)+' gal / '+fmt(num(g.capacidad)*GAL_L)+' L')}${d('Bloque',g.bloque)}
+    ${d('Consumo aprox. por hora',g.consumo)}<div style="grid-column:span 2"><b>Autonomía con tanque lleno</b>${esc(g.autonomia)||'—'}</div>
+    <div style="grid-column:1/-1"><b>Observaciones</b>${esc(g.obs)||'—'}</div>
+  </div>
+  ${extra.length?`<div class="tw" style="margin-top:8px"><b style="font-size:11px;color:var(--sub)">DATOS DE PLACA COMPLETOS</b><table>${extra.map(([k,v])=>`<tr><th style="width:40%">${esc(k)}</th><td style="white-space:normal">${esc(v)}</td></tr>`).join('')}</table></div>`:''}
+  <div style="margin-top:8px"><b style="font-size:11px;color:var(--sub)">FOTO FICHA TÉCNICA</b>${g.foto?`<div class="fotoprev"><img src="${g.foto}" onclick="verImg(this.src)"></div>`:'<div style="color:var(--sub);font-size:13px">Sin foto cargada</div>'}</div>
+  </details>
+  <div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">📅 Registro diario / Historial (${h.length})</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
+    ${h.length?`<button class="btn sec sm" onclick="excelHist('${g.id}')">📊 Excel</button><button class="btn sec sm" onclick="pdfHist('${g.id}')">📄 PDF</button>`:''}</div></div>
+    <div class="tw" style="max-height:360px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th class="n">Nivel</th><th class="n">Galones</th><th class="n">Horómetro</th><th class="n">Encendido</th><th>Aceite</th><th>Batería</th><th>Refrigerante</th><th>Estado</th><th>Responsable</th><th>Observación</th><th></th></tr>
+    ${h.length ? h.map(r=>`<tr class="${['aceite','bateria','refrigerante','estado'].some(k=>MALOS.includes(r[k]))?'mal':''}"><td>${fFecha(r.fecha)}</td><td>${esc(r.hora)}</td><td class="n" style="color:${color(r.nivel)};font-weight:700">${num(r.nivel)}%</td>
+      <td class="n">${fmt(num(g.capacidad)*num(r.nivel)/100)}</td><td class="n">${r.horometro?fmtHor(r.horometro):''}</td><td class="n">${uso[r.id]!==undefined?'+'+fmtHM(uso[r.id]):''}</td><td>${chip('aceite',r.aceite)}</td><td>${chip('bateria',r.bateria)}</td>
+      <td>${chip('refrigerante',r.refrigerante)}</td><td>${chip('estado',r.estado)}</td><td>${esc(r.responsable||'')}</td><td>${esc(r.nota||'')}</td>
+      <td><button class="btn sec sm" title="Modificar" onclick="formReg('${g.id}','${r.id}')">✏</button> <button class="btn sec sm" title="Borrar" onclick="borrarReg('${g.id}','${r.id}')">🗑</button></td></tr>`).join('')
+      : '<tr><td colspan="13" style="text-align:center;color:var(--sub)">Sin registros</td></tr>'}</table></div></div>
+  <div class="acciones"><button class="btn rojo" onclick="eliminarGen('${g.id}')">🗑 Eliminar generador</button><button class="btn sec" onclick="formGen('${g.id}')">✏ Editar datos</button><button class="btn" onclick="cerrar()">Cerrar</button></div>`, true);
+}
+
+/* ===== Registro diario: crear / modificar / borrar ===== */
+function formReg(gid, rid){
+  const g = state.generadores.find(x=>x.id===gid);
+  const r = rid ? hist(g).find(x=>x.id===rid) : {fecha:hoy(), hora:ahora(), nivel:num(g.nivel)||100, horometro:'', aceite:g.aceite, bateria:g.bateria, refrigerante:g.refrigerante, estado:g.estado};
+  abrir(`<h3>${rid?'Modificar':'Nuevo'} registro diario · ${esc(g.ubicacion)}</h3>
+  <div class="fm">
+    <label>Fecha<input id="rFecha" type="date" value="${esc(r.fecha)}"></label>
+    <label>Hora<input id="rHora" type="time" value="${esc(r.hora)}"></label>
+    <div class="full"><div class="sep" style="margin-bottom:6px">Nivel de combustible</div>${sliderHTML(num(r.nivel)||1, g.capacidad)}</div>
+    <label>Horómetro (horas y minutos) <span style="font-weight:400">· último: ${fmtHor(g.horometro)}</span>${horInput('rHor', r.horometro)}</label>
+    <label>Estado del aceite${selHTML('rAce','aceite',r.aceite)}</label>
+    <label>Estado de la batería${selHTML('rBat','bateria',r.bateria)}</label>
+    <label>Refrigerante${selHTML('rRef','refrigerante',r.refrigerante)}</label>
+    <label>Estado general${selHTML('rEst','estado',r.estado)}</label>
+    <label>Responsable<input id="rResp" value="${esc(r.responsable||'')}"></label>
+    <label class="full">Observación<input id="rNota" value="${esc(r.nota||'')}" placeholder="Ej.: abastecido 20 gal, prueba en vacío, etc."></label>
+  </div><div class="err" id="fErr"></div>
+  <div class="acciones"><button class="btn sec" onclick="verGen('${gid}')">Cancelar</button><button class="btn verde" onclick="guardarReg('${gid}','${rid||''}')">💾 Guardar registro</button></div>`);
+  onNivel();
+}
+function guardarReg(gid, rid){
+  const g = Object.assign({}, state.generadores.find(x=>x.id===gid)), h = hist(g);
+  const fecha = $('rFecha').value, hora = $('rHora').value, hor = leerHor('rHor');
+  if(!fecha || !hora){ $('fErr').textContent='Ingrese fecha y hora.'; return; }
+  if(hor===null){ $('fErr').textContent='Los minutos del horómetro deben estar entre 0 y 59.'; return; }
+  const ant = h.filter(x => x.id!==rid && (x.fecha+x.hora) <= (fecha+hora) && horMin(x.horometro)!==null);
+  const horAnt = ant.length ? horMin(ant[ant.length-1].horometro) : null;
+  if(hor!=='' && horAnt!==null && horMin(hor) < horAnt && !confirm(`El horómetro (${fmtHor(hor)}) es menor que el registro anterior (${fmtHM(horAnt)}). ¿Guardar de todas formas?`)) return;
+  const old = rid ? h.find(x=>x.id===rid) : null;
+  const r = {id: rid||uid(), fecha, hora, nivel:+$('fNivel').value, horometro:hor, aceite:$('rAce').value, bateria:$('rBat').value,
+    refrigerante:$('rRef').value, estado:$('rEst').value, responsable:$('rResp').value.trim(), nota:$('rNota').value.trim(), t: old ? (old.t||Date.now()) : Date.now()};
+  const i = h.findIndex(x=>x.id===r.id); if(i>=0) h[i]=r; else h.push(r);
+  g.historial = h; g.actualizado = Date.now(); recalc(g);
+  put('generadores', g); render(); verGen(gid); revisarAlarma();
+  toast(rid ? 'Registro modificado' : 'Registro diario guardado');
+}
+function borrarReg(gid, rid){
+  if(!confirm('¿Borrar este registro del historial?')) return;
+  const g = Object.assign({}, state.generadores.find(x=>x.id===gid));
+  g.historial = hist(g).filter(x=>x.id!==rid); g.actualizado = Date.now(); recalc(g);
+  put('generadores', g); render(); verGen(gid); revisarAlarma(); toast('Registro borrado');
+}
+function usoHTML(g){
+  const d = usoPorDia(g), h0 = hoy(), mes = h0.slice(0,8)+'01';
+  if(!Object.keys(d).length) return `<div class="panel"><h3>🔋 Horas de encendido</h3><div class="nota">Se calculan con el horómetro: registre el horómetro (horas y minutos) en cada registro diario y la app sumará cuánto estuvo encendido el generador cada día.</div></div>`;
+  const dias = Array.from({length:14}, (_,i)=>diasAtras(13-i)), max = Math.max(60, ...dias.map(x=>d[x]||0));
+  const total = Object.values(d).reduce((s,m)=>s+m,0);
+  return `<div class="panel"><h3>🔋 Horas de encendido <span style="font-weight:400;font-size:12px;color:var(--sub)">(según el horómetro)</span></h3>
+    <div class="estados" style="margin-top:0">
+      <div><b>Hoy</b>${fmtHM(d[h0]??0)}</div><div><b>Últimos 7 días</b>${fmtHM(sumaDias(d, diasAtras(6), h0))}</div>
+      <div><b>Este mes</b>${fmtHM(sumaDias(d, mes, h0))}</div><div><b>Total registrado</b>${fmtHM(total)}</div></div>
+    <div class="ubars">${dias.map(x=>{ const m = d[x]||0; return `<div class="ub" title="${fFecha(x)}: ${fmtHM(m)}"><span class="ubv">${m?fmtHM(m).replace(' min','m').replace(' h ','h '):''}</span><div class="ubf" style="height:${m/max*100}%"></div><span class="ubl">${x.slice(8)}/${x.slice(5,7)}</span></div>`; }).join('')}</div>
+    <details style="margin-top:8px"><summary style="cursor:pointer;font-size:13px;font-weight:700">Ver horas trabajadas por día (${Object.keys(d).length} días)</summary>
+    <div class="tw" style="max-height:240px;overflow-y:auto;margin-top:6px"><table><tr><th>Fecha</th><th class="n">Horas trabajadas</th></tr>
+    ${Object.keys(d).sort().reverse().map(x=>`<tr><td>${fFecha(x)}</td><td class="n"><b>${fmtHM(d[x])}</b></td></tr>`).join('')}</table></div></details>
+  </div>`;
+}
+const filaMant = m => ({'Fecha':fFecha(m.fecha),'Hora':m.hora,'Tipo':m.tipo,'Pieza / componente':m.pieza,'Descripción':m.descripcion,'Técnico / responsable':m.tecnico||'','Costo':m.costo||'','Estado':m.estado,'Fecha de solución':m.fechaSol?fFecha(m.fechaSol):'','Observación':m.obs||''});
+function mantHTML(g){
+  const ms = mants(g), p = mantPend(g).length;
+  return `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🔧 Mantenimientos y problemas (${ms.length})${p?` <span class="chip" style="background:#c628281f;color:#c62828">${p} pendiente${p>1?'s':''}</span>`:''}</h3>
+    <button class="btn sm" style="background:#6a1b9a" onclick="formMant('${g.id}')">+ Registrar mantenimiento / problema</button></div>
+    <div class="tw"><table><tr><th>Fecha</th><th>Tipo</th><th>Pieza / componente</th><th>Descripción</th><th>Técnico / responsable</th><th>Estado</th><th>Solucionado</th><th></th></tr>
+    ${ms.length ? ms.map(m=>`<tr><td>${fFecha(m.fecha)} ${esc(m.hora||'')}</td><td>${chipC(m.tipo, TIPOS_MANT[m.tipo]||'#5d6b7e')}</td><td><b>${esc(m.pieza)}</b></td>
+      <td style="white-space:normal;min-width:200px">${esc(m.descripcion)}${m.obs?`<br><small style="color:var(--sub)">${esc(m.obs)}</small>`:''}</td><td>${esc(m.tecnico||'')}</td>
+      <td>${chipC(m.estado, ESTADOS_MANT[m.estado]||'#5d6b7e')}</td><td>${m.fechaSol?fFecha(m.fechaSol):''}</td>
+      <td><button class="btn sec sm" title="Modificar" onclick="formMant('${g.id}','${m.id}')">✏</button> <button class="btn sec sm" title="Borrar" onclick="borrarMant('${g.id}','${m.id}')">🗑</button></td></tr>`).join('')
+      : '<tr><td colspan="8" style="text-align:center;color:var(--sub)">Sin mantenimientos ni problemas registrados</td></tr>'}</table></div></div>`;
+}
+function formMant(gid, mid){
+  const g = state.generadores.find(x=>x.id===gid), m = mid ? (g.mant||[]).find(x=>x.id===mid) : {fecha:hoy(), hora:ahora(), tipo:'Problema / falla', estado:'Pendiente'};
+  const v = k => esc(m[k] ?? ''), otraPieza = m.pieza && !PIEZAS.includes(m.pieza);
+  abrir(`<h3>🔧 ${mid?'Modificar':'Registrar'} mantenimiento / problema · ${esc(genNombre(g))} · ${esc(g.piazza)}</h3>
+  <div class="fm">
+    <label>Fecha<input id="mFecha" type="date" value="${v('fecha')}"></label>
+    <label>Hora<input id="mHora" type="time" value="${v('hora')}"></label>
+    <label>Tipo *<select id="mTipo">${Object.keys(TIPOS_MANT).map(t=>`<option ${t===m.tipo?'selected':''}>${t}</option>`).join('')}</select></label>
+    <label>Pieza / componente *<select id="mPieza" onchange="$('mOtra').style.display=this.value==='Otro'?'block':'none'">${PIEZAS.map(x=>`<option ${x===m.pieza||(x==='Otro'&&otraPieza)?'selected':''}>${x}</option>`).join('')}</select>
+      <input id="mOtra" placeholder="Especifique la pieza" value="${otraPieza?v('pieza'):''}" style="display:${otraPieza?'block':'none'};margin-top:4px"></label>
+    <label class="full">Descripción del trabajo o del problema *<textarea id="mDesc" rows="3">${v('descripcion')}</textarea></label>
+    <label>Técnico / responsable<input id="mTec" value="${v('tecnico')}"></label>
+    <label>Costo (opcional)<input id="mCosto" value="${v('costo')}" placeholder="Ej.: $120"></label>
+    <label>Estado<select id="mEst" onchange="$('mSolBox').style.display=this.value==='Resuelto'?'flex':'none'">${Object.keys(ESTADOS_MANT).map(t=>`<option ${t===m.estado?'selected':''}>${t}</option>`).join('')}</select></label>
+    <label id="mSolBox" style="display:${m.estado==='Resuelto'?'flex':'none'}">Fecha en que se solucionó<input id="mSol" type="date" value="${v('fechaSol')||hoy()}"></label>
+    <label class="full">Observación<input id="mObs" value="${v('obs')}"></label>
+  </div><div class="err" id="fErr"></div>
+  <div class="acciones"><button class="btn sec" onclick="verGen('${gid}')">Cancelar</button><button class="btn verde" onclick="guardarMant('${gid}','${mid||''}')">💾 Guardar</button></div>`);
+}
+function guardarMant(gid, mid){
+  let pieza = $('mPieza').value; if(pieza==='Otro') pieza = $('mOtra').value.trim() || 'Otro';
+  const desc = $('mDesc').value.trim(); if(!desc){ $('fErr').textContent='Describa el trabajo o el problema.'; return; }
+  const g = {...state.generadores.find(x=>x.id===gid)}, lista = (g.mant||[]).slice(), est = $('mEst').value;
+  const m = {id:mid||uid(), fecha:$('mFecha').value||hoy(), hora:$('mHora').value||ahora(), tipo:$('mTipo').value, pieza, descripcion:desc,
+    tecnico:$('mTec').value.trim(), costo:$('mCosto').value.trim(), estado:est, fechaSol: est==='Resuelto' ? ($('mSol').value||hoy()) : '', obs:$('mObs').value.trim()};
+  const i = lista.findIndex(x=>x.id===m.id); if(i>=0) lista[i]=m; else lista.push(m);
+  g.mant = lista; g.actualizado = Date.now(); put('generadores', g); render(); verGen(gid); toast(mid?'Mantenimiento actualizado':'Mantenimiento / problema registrado');
+}
+function borrarMant(gid, mid){
+  if(!confirm('¿Borrar este mantenimiento / problema?')) return;
+  const g = {...state.generadores.find(x=>x.id===gid)}; g.mant = (g.mant||[]).filter(x=>x.id!==mid);
+  put('generadores', g); render(); verGen(gid); toast('Registro borrado');
+}
+function editarTitulo(id){
+  const g = state.generadores.find(x=>x.id===id);
+  $('tituloGen').innerHTML = `<div class="fm" style="background:#f3f6fa;padding:10px;border-radius:10px;margin-bottom:12px;padding-right:40px">
+    <label>Bloque<input id="tBloque" value="${esc(g.bloque||'')}" placeholder="Ej.: Bloque A"></label>
+    <label>Piazza<select id="tPz">${PIAZZAS.map(p=>`<option ${p===g.piazza?'selected':''}>${p}</option>`).join('')}</select></label>
+    <label class="full">Ubicación *<input id="tUb" value="${esc(g.ubicacion)}"></label>
+    <div class="full acciones" style="margin-top:0"><button class="btn sec sm" onclick="verGen('${id}')">Cancelar</button><button class="btn verde sm" onclick="guardarTitulo('${id}')">💾 Guardar</button></div></div>`;
+  $('tUb').focus();
+}
+function guardarTitulo(id){
+  const ub = $('tUb').value.trim(); if(!ub){ toast('La ubicación no puede quedar vacía'); return; }
+  const g = {...state.generadores.find(x=>x.id===id), bloque:$('tBloque').value.trim(), ubicacion:ub, piazza:$('tPz').value, actualizado:Date.now()};
+  put('generadores', g);
+  state.despachos.filter(d=>d.generadorId===id).forEach(d=>put('despachos', {...d, generador:genNombre(g)}));
+  render(); verGen(id); toast('Datos del generador actualizados');
+}
+function eliminarGen(id){
+  if(!confirm('¿Eliminar este generador y todo su historial?')) return;
+  del('generadores', id); cerrar(); render(); revisarAlarma();
+}
+
+/* ===== Exportación de generadores e historial ===== */
+const filaGen = g => ({'Piazza':g.piazza,'Bloque':g.bloque||'','Sector':g.ubicacion,'Placa del motor':g.placa||'','Horómetro':g.horometro?fmtHor(g.horometro):'','Marca':g.marca||'','Modelo':g.modelo||'',
+  'Serial':g.serial||'','Año':g.anio||'','Power (kVA)':g.power||'','Speed (RPM)':g.speed||'','Fuel type':g.fuel||'',
+  'Capacidad del tanque (gal)':num(g.capacidad),'Capacidad del tanque (L)':Math.round(num(g.capacidad)*GAL_L*100)/100,'KW':g.kw||'',
+  'Batería':g.bateriaSpec||'','Consumo aprox. por hora':g.consumo||'','Autonomía con tanque lleno':g.autonomia||'',
+  'Nivel de combustible (%)':tieneNivel(g)?num(g.nivel):'','Galones restantes':tieneNivel(g)?Math.round(galRest(g)*100)/100:'',
+  'Autonomía actual (h)':autonomiaActual(g)!==null?Math.round(autonomiaActual(g)*10)/10:'',
+  'Estado aceite':g.aceite||'','Estado batería':g.bateria||'','Refrigerante':g.refrigerante||'','Estado':g.estado||'',
+  'Alerta':!tieneNivel(g)?'SIN REGISTRO':num(g.nivel)<UMBRAL?'ABASTECER':'OK','Último registro':g.ultimoRegistro||''});
+const filaReg = (g,r) => ({'Piazza':g.piazza,'Sector':g.ubicacion,'Fecha':fFecha(r.fecha),'Hora':r.hora,'Nivel (%)':num(r.nivel),
+  'Galones':Math.round(num(g.capacidad)*num(r.nivel))/100,'Horómetro':r.horometro?fmtHor(r.horometro):'','Encendido':usoRegistros(g)[r.id]!==undefined?fmtHM(usoRegistros(g)[r.id]):'','Aceite':r.aceite||'','Batería':r.bateria||'',
+  'Refrigerante':r.refrigerante||'','Estado':r.estado||'','Responsable':r.responsable||'','Observación':r.nota||''});
+function hoja(rows){ const ws = XLSX.utils.json_to_sheet(rows); if(rows.length) ws['!cols']=Object.keys(rows[0]).map(k=>({wch:Math.max(11,k.length+2)})); return ws; }
+const filaRec = i => ({'Fecha':fFecha(i.fecha),'Hora':i.hora,'Centro':i.centro,'Tanque':i.tanque||'','Galones':num(i.galones),
+  'Nivel antes (gal)':i.antes??'','Nivel después (gal)':i.despues??'','Proveedor':i.proveedor||'','Factura / Guía':i.factura||'',
+  'Entrega (chofer)':i.entrega||'','Placa':i.placa||'','Recibe':i.recibe||'','Observación':i.obs||''});
+function excelRecargas(){
+  const rows = recFiltradas().map(filaRec); if(!rows.length) return toast('No hay recargas para exportar');
+  rows.push({'Fecha':'TOTAL','Galones':rows.reduce((s,r)=>s+r.Galones,0)});
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, hoja(rows), 'Recargas');
+  XLSX.writeFile(wb, `Recargas_Tanques_${hoy()}.xlsx`);
+}
+function pdfRecargas(){
+  const rs = recFiltradas(); if(!rs.length) return toast('No hay recargas para exportar');
+  const { jsPDF } = window.jspdf, doc = new jsPDF({orientation:'landscape'});
+  doc.setFontSize(14); doc.text('REGISTRO DE RECARGAS DE TANQUES DE DISTRIBUCIÓN', 148, 14, {align:'center'});
+  doc.setFontSize(9); doc.text(rango(), 148, 20, {align:'center'});
+  const cols = Object.keys(filaRec(rs[0]));
+  doc.autoTable({startY:25, head:[cols], body:rs.map(i=>cols.map(k=>String(filaRec(i)[k]??''))),
+    foot:[cols.map(k=>k==='Fecha'?'TOTAL':k==='Galones'?fmt(rs.reduce((s,i)=>s+num(i.galones),0)):'')],
+    styles:{fontSize:7.5,cellPadding:2}, headStyles:{fillColor:[46,125,50]}, footStyles:{fillColor:[230,234,240],textColor:0}});
+  doc.save(`Recargas_Tanques_${hoy()}.pdf`);
+}
+function excelGeneradores(p){
+  const gens = state.generadores.filter(g=>g.piazza===p).sort((a,b)=>a.ubicacion.localeCompare(b.ubicacion));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja(gens.map(filaGen)), 'Generadores');
+  const regs = gens.flatMap(g => hist(g).map(r => filaReg(g,r)));
+  if(regs.length) XLSX.utils.book_append_sheet(wb, hoja(regs), 'Registros diarios');
+  XLSX.writeFile(wb, `Generadores_${p.replace(/\s/g,'_')}_${hoy()}.xlsx`);
+}
+function excelHist(gid){
+  const g = state.generadores.find(x=>x.id===gid), wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, hoja(hist(g).reverse().map(r=>filaReg(g,r))), 'Historial');
+  XLSX.utils.book_append_sheet(wb, hoja([filaGen(g)]), 'Ficha');
+  const mm = mants(g).map(filaMant);
+  if(mm.length) XLSX.utils.book_append_sheet(wb, hoja(mm), 'Mantenimientos');
+  const ud = Object.entries(usoPorDia(g)).sort((a,b)=>b[0].localeCompare(a[0])).map(([f,m])=>({'Fecha':fFecha(f),'Horas encendido':fmtHM(m),'Horas (decimal)':Math.round(m/60*100)/100}));
+  if(ud.length) XLSX.utils.book_append_sheet(wb, hoja(ud), 'Horas por día');
+  XLSX.writeFile(wb, `Historial_${g.piazza.replace(/\s/g,'_')}_${g.ubicacion.replace(/[^\w]+/g,'_')}_${hoy()}.xlsx`);
+}
+function pdfHist(gid){
+  const g = state.generadores.find(x=>x.id===gid), { jsPDF } = window.jspdf, doc = new jsPDF({orientation:'landscape'});
+  doc.setFontSize(14); doc.text(`HISTORIAL DEL GENERADOR · Piazza ${g.piazza}`, 148, 13, {align:'center'});
+  doc.setFontSize(9);
+  doc.text(`Sector: ${g.ubicacion}   Placa: ${g.placa||'—'}   Modelo: ${g.modelo||'—'}   Serial: ${g.serial||'—'}   Año: ${g.anio||'—'}   Power: ${g.power||'—'} kVA   KW: ${g.kw||'—'}   Fuel: ${g.fuel||'—'}`, 148, 19, {align:'center'});
+  doc.text(`Capacidad: ${fmt(g.capacidad)} gal   Nivel actual: ${num(g.nivel)}%   Quedan: ${fmt(galRest(g))} gal   Horómetro: ${fmtHor(g.horometro)}   Generado: ${new Date().toLocaleString('es-EC')}`, 148, 24, {align:'center'});
+  const cols = ['Fecha','Hora','Nivel (%)','Galones','Horómetro','Encendido','Aceite','Batería','Refrigerante','Estado','Responsable','Observación'];
+  doc.autoTable({startY:29, head:[cols], body:hist(g).reverse().map(r=>{ const f=filaReg(g,r); return cols.map(c=>String(f[c]??'')); }),
+    styles:{fontSize:8,cellPadding:2}, headStyles:{fillColor:[15,42,74]}});
+  const mm = mants(g).map(filaMant);
+  if(mm.length){ const c2 = Object.keys(mm[0]); doc.autoTable({startY:doc.lastAutoTable.finalY+8, head:[c2], body:mm.map(r=>c2.map(c=>String(r[c]??''))), styles:{fontSize:8,cellPadding:2}, headStyles:{fillColor:[106,27,154]}}); }
+  doc.save(`Historial_${g.ubicacion.replace(/[^\w]+/g,'_')}_${hoy()}.pdf`);
+}
+
+/* ===== Alarma (< 80%) ===== */
+
+let audioCtx=null, sonidoInt=null, posponerHasta=0, bajosPrev=new Set(), inicial=true;
+function bajos(){ return state.generadores.filter(g => tieneNivel(g) && num(g.nivel)<UMBRAL).sort((a,b)=>num(a.nivel)-num(b.nivel)); }
+function beep(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain(), t=audioCtx.currentTime;
+    o.type='square'; o.frequency.setValueAtTime(880,t); o.frequency.setValueAtTime(620,t+.25);
+    g.gain.value=.12; o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+.5);
+  }catch(e){}
+  if(navigator.vibrate) navigator.vibrate(300);
+}
+function iniciarSonido(){ pararSonido(); beep(); sonidoInt=setInterval(beep,1300); }
+function pararSonido(){ clearInterval(sonidoInt); sonidoInt=null; }
+document.addEventListener('click', ()=>{ if(audioCtx && audioCtx.state==='suspended') audioCtx.resume(); });
+
+function revisarAlarma(){
+  const b = bajos(), ids = new Set(b.map(g=>g.id));
+  const ban = $('banner');
+  if(b.length){ ban.style.display='block'; ban.textContent=`⚠ ${b.length} generador(es) con combustible menor a 80% — Hay que abastecer. (clic para ver)`; }
+  else { ban.style.display='none'; pararSonido(); $('alOv').classList.remove('on'); }
+  const nuevos = b.filter(g => !bajosPrev.has(g.id));
+  bajosPrev = ids;
+  if(nuevos.length) mostrarAlarma(true);
+}
+function mostrarAlarma(forzar){
+  const b = bajos(); if(!b.length) return;
+  if(!forzar && $('alOv').classList.contains('on')) return;
+  if(!forzar && Date.now()<posponerHasta) return;
+  $('alMd').innerHTML = `<h3>🚨 ALERTA: ABASTECER COMBUSTIBLE</h3>
+    <p>Los siguientes generadores llegaron <b>menos del 80%</b> de combustible:</p>
+    <ul>${b.map(g=>`<li><b style="color:${color(g.nivel)}">${num(g.nivel)}%</b> — Piazza <b>${esc(g.piazza)}</b> · ${esc(g.ubicacion)} <span style="color:var(--sub);font-size:13px">(faltan ≈ ${fmt(num(g.capacidad)*(100-num(g.nivel))/100)} gal)</span></li>`).join('')}</ul>
+    <div class="acciones"><button class="btn sec" onclick="posponer()">⏰ Recordar en 30 min</button><button class="btn rojo" onclick="cerrarAlarma()">Entendido</button></div>`;
+  $('alOv').classList.add('on'); iniciarSonido();
+  if('Notification' in window && Notification.permission==='granted'){
+    try{ new Notification('⚠ Abastecer combustible', {body: b.map(g=>`${g.piazza} · ${g.ubicacion}: ${g.nivel}%`).join('\n'), requireInteraction:true}); }catch(e){}
+  }
+}
+function cerrarAlarma(){ pararSonido(); $('alOv').classList.remove('on'); posponerHasta = Date.now()+30*60*1000; }
+function posponer(){ cerrarAlarma(); toast('Se recordará en 30 minutos'); }
+setInterval(()=>mostrarAlarma(false), 60*1000);
+function pedirNotif(){
+  if(!('Notification' in window)) return toast('Este navegador no admite notificaciones');
+  Notification.requestPermission().then(p => toast(p==='granted'?'Notificaciones activadas':'Notificaciones bloqueadas'));
+}
+
+/* ===== Centro de Distribución (con tanques por material) ===== */
+const MATERIALES = { 'Polietileno': {c:'#1e88e5', bg:'#e3f2fd', ic:'🛢'}, 'Metálico': {c:'#546e7a', bg:'#eceff1', ic:'⚙'} };
+const tqs = c => Array.isArray(c.tanques) ? c.tanques : [];
+const capCentro = c => tqs(c).length ? tqs(c).reduce((s,t)=>s+num(t.capacidad),0) : num(c.galones);
+const sync = c => { if(tqs(c).length) c.galones = Math.round(tqs(c).reduce((s,t)=>s+num(t.galones),0)*100)/100; return c; };
+/* Suma o resta galones en un tanque y recalcula el total del centro */
+function ajustarTanque(c, tid, delta){
+  c = {...c, tanques: tqs(c).map(t=>({...t}))};
+  if(!c.tanques.length){ c.galones = Math.max(0, num(c.galones)+delta); return c; }
+  const t = c.tanques.find(x=>x.id===tid) || c.tanques[0];
+  t.galones = Math.max(0, Math.round((num(t.galones)+delta)*100)/100);
+  return sync(c);
+}
+const ultRecarga = (cid, tid) => state.ingresos.filter(r=>r.centroId===cid && (!tid || r.tanqueId===tid)).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora))[0];
+/* Reparte una salida: primero el tanque elegido y lo que falte de los demás (en uso primero) */
+function repartir(c, tidPref, gal){
+  const t = tqs(c); if(!t.length) return num(c.galones) >= gal ? {c:ajustarTanque(c,'',-gal), partes:[]} : null;
+  const orden = [t.find(x=>x.id===tidPref), ...t.filter(x=>x.id!==tidPref && x.enUso!==false), ...t.filter(x=>x.id!==tidPref && x.enUso===false)].filter(Boolean);
+  let resto = gal, cc = c; const partes = [];
+  for(const x of orden){ if(resto<=0) break; const tom = Math.min(num(x.galones), resto); if(tom>0){ partes.push({tanqueId:x.id, nombre:tqNombre(c,x), galones:Math.round(tom*100)/100}); cc = ajustarTanque(cc, x.id, -tom); resto = Math.round((resto-tom)*100)/100; } }
+  return resto>0 ? null : {c:cc, partes};
+}
+/* Devuelve al centro los galones de una salida (respeta el reparto entre tanques) */
+function revertirSalida(c, d){
+  if(Array.isArray(d.reparto) && d.reparto.length) return d.reparto.reduce((cc,p)=>ajustarTanque(cc, p.tanqueId, num(p.galones)), c);
+  return ajustarTanque(c, d.tanqueId, num(d.galones));
+}
+function prevReparto(){
+  const box = $('dRep'); if(!box) return;
+  const c = window._despCentro, gal = num($('dGal').value), tid = $('xTq') ? $('xTq').value : '';
+  if(!c || !tqs(c).length || gal<=0){ box.innerHTML=''; return; }
+  const r = repartir(c, tid, gal);
+  if(!r){ box.innerHTML = `<span style="color:var(--rojo);font-weight:700">No alcanza: el centro solo tiene ${fmt(c.galones)} gal en total.</span>`; return; }
+  box.innerHTML = r.partes.length>1 ? `⚠ El tanque elegido no alcanza, se descontará así: ${r.partes.map(p=>`<b>${esc(p.nombre.split(' · ')[0])}: ${fmt(p.galones)} gal</b>`).join(' + ')}` : `Se descontarán ${fmt(gal)} gal del ${esc(r.partes[0].nombre.split(' · ')[0])}`;
+}
+function tanqueHTML(t, i, cid){
+  const u = ultRecarga(cid, t.id);
+  const m = MATERIALES[t.material] || MATERIALES['Polietileno'], cap = num(t.capacidad), g = num(t.galones), pct = cap>0 ? Math.min(100, g/cap*100) : 0;
+  return `<div class="tq ${t.enUso===false?'off':''}" style="--mc:${m.c};--mbg:${m.bg};cursor:pointer" title="Clic para ver detalle" onclick="verTanque('${cid}','${t.id}')">
+    <div class="tqcuerpo"><div class="tqlleno" style="height:${pct}%;background:${color(pct)}"></div><span>${Math.round(pct)}%</span></div>
+    <div class="tqinfo"><b>Tanque ${i+1}</b><span style="font-size:15px;font-weight:800">${fmt(g)} <span style="font-weight:500;font-size:12px;color:var(--sub)">/ ${fmt(cap)} gal</span></span>${t.enUso===false?'<span class="sinuso">Sin uso</span>':''}</div></div>`;
+}
+function verTanque(cid, tid){
+  const c = state.centros.find(x=>x.id===cid); if(!c) return;
+  const ts = tqs(c), i = ts.findIndex(x=>x.id===tid), t = ts[i]; if(!t) return;
+  const m = MATERIALES[t.material] || MATERIALES['Polietileno'], cap = num(t.capacidad), g = num(t.galones), pct = cap>0 ? Math.min(100, g/cap*100) : 0;
+  const rec = state.ingresos.filter(r=>r.centroId===cid && r.tanqueId===tid).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  const sal = state.despachos.filter(d=>d.centroId===cid && ((d.reparto||[]).some(p=>p.tanqueId===tid) || (!(d.reparto||[]).length && d.tanqueId===tid)))
+    .map(d=>({...d, galT: (d.reparto||[]).length ? num((d.reparto.find(p=>p.tanqueId===tid)||{}).galones) : num(d.galones)})).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  abrir(`<h3 style="padding-right:30px">🛢 Tanque ${i+1} · ${esc(c.nombre)}</h3>
+    <div class="gauge" style="height:28px"><div class="f" style="width:${pct}%;background:${color(pct)}"></div><span style="font-size:14px">${Math.round(pct)}% · ${fmt(g)} / ${fmt(cap)} gal</span></div>
+    <div class="estados"><div><b>Material</b><span style="color:${m.c};font-weight:700">${m.ic} ${esc(t.material)}</span></div><div><b>Capacidad</b>${fmt(cap)} gal</div>
+      <div><b>Disponible</b>${fmt(g)} gal (${fmt(g*GAL_L)} L)</div><div><b>Falta para llenar</b>${fmt(Math.max(0,cap-g))} gal</div><div><b>En uso</b>${t.enUso===false?'No':'Sí'}</div></div>
+    <div class="panel"><h3>⛽ Recargas (${rec.length})</h3><div class="tw" style="max-height:220px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th class="n">Galones</th><th>Proveedor</th><th>Factura / guía</th><th>Recibe</th></tr>
+      ${rec.length?rec.map(r=>`<tr><td>${fFecha(r.fecha)}</td><td>${esc(r.hora)}</td><td class="n"><b style="color:var(--verde)">+${fmt(r.galones)}</b></td><td>${esc(r.proveedor||'')}</td><td>${esc(r.factura||'')}</td><td>${esc(r.recibe||'')}</td></tr>`).join('')
+        :'<tr><td colspan="6" style="text-align:center;color:var(--sub)">Sin recargas</td></tr>'}</table></div></div>
+    <div class="panel"><h3>⬆ Salidas desde este tanque (${sal.length})</h3><div class="tw" style="max-height:220px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th>N°</th><th>Destino</th><th>Generador</th><th class="n">Galones</th></tr>
+      ${sal.length?sal.map(d=>`<tr><td>${fFecha(d.fecha)}</td><td>${esc(d.hora)}</td><td>${esc(d.numero)}</td><td>${esc(d.destino)}</td><td>${esc(d.generador||'')}</td><td class="n"><b style="color:var(--rojo)">−${fmt(d.galT)}</b></td></tr>`).join('')
+        :'<tr><td colspan="6" style="text-align:center;color:var(--sub)">Sin salidas</td></tr>'}</table></div></div>
+    <div class="acciones"><button class="btn sec" onclick="cerrar()">Cerrar</button><button class="btn verde" onclick="formIngreso('${cid}','','${tid}')">⛽ Recargar este tanque</button></div>`, true);
+}
+function centroHTML(c){
+  const t = tqs(c), cap = capCentro(c);
+  return `<div class="centro">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
+    <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(cap)} gal disponibles</div></div></div>
+    ${t.length?`<div class="tqs">${t.map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div>`:''}
+    ${c.obs?`<div class="nota" style="margin-top:8px">${esc(c.obs)}</div>`:''}
+    <div class="bt"><button class="btn rojo sm" onclick="formDespacho('${c.id}')">⬆ Registrar salida</button>
+    <button class="btn verde sm" onclick="formIngreso('${c.id}')">⛽ Recargar tanque</button>
+    <button class="btn sec sm" onclick="formCentro('${c.id}')">✏ Editar</button><button class="btn sec sm" onclick="eliminarCentro('${c.id}')">🗑</button></div></div>`;
+}
+const leyendaMat = () => `<div class="leyenda">${Object.entries(MATERIALES).map(([k,m])=>`<span><i style="background:${m.bg};border-color:${m.c}"></i>${m.ic} ${k}</span>`).join('')}</div>`;
+let filtro = {centro:'', desde:'', hasta:''};
+function renderCD(){
+  const cs = state.centros.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  let h = `<div class="top"><div><h2>🏭 Centro de Distribución</h2><div class="res">${cs.length} centro(s) · Total disponible: ${fmt(cs.reduce((s,c)=>s+num(c.galones),0))} de ${fmt(cs.reduce((s,c)=>s+capCentro(c),0))} galones</div></div>
+    <button class="btn" onclick="formCentro()">+ Agregar centro</button></div>${leyendaMat()}`;
+  h += cs.length ? '<div class="grid gridcd">' + cs.map(centroHTML).join('') + '</div>'
+    : `<div class="vacio">No hay centros de distribución. Agregue uno con el nombre o la Piazza y sus tanques.</div>`;
+
+  const ds = despFiltrados();
+  h += `<div class="panel"><h3>📋 Salidas de combustible (formularios)</h3>
+    <div class="filtros">
+      <label>Centro<select onchange="filtro.centro=this.value;renderCD()"><option value="">Todos</option>${cs.map(c=>`<option value="${c.id}" ${filtro.centro===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></label>
+      <label>Desde<input type="date" value="${filtro.desde}" onchange="filtro.desde=this.value;renderCD()"></label>
+      <label>Hasta<input type="date" value="${filtro.hasta}" onchange="filtro.hasta=this.value;renderCD()"></label>
+      <button class="btn verde sm" onclick="excelDespachos()">📊 Exportar Excel</button>
+      <button class="btn rojo sm" onclick="pdfDespachos()">📄 Exportar PDF</button>
+      <button class="btn sec sm" onclick="imprimirListado()">🖨 Imprimir</button>
+    </div>
+    <div class="tw"><table><tr><th>N°</th><th>Fecha</th><th>Hora</th><th>Sale de</th><th>Se dirige a</th><th class="n">Galones</th><th>Despacha</th><th>Traslada</th><th>Asist. supervisora</th><th>Líder entrega</th><th>Líder recibe</th><th>Tanque</th><th>Generador destino</th><th></th></tr>
+    ${ds.length ? ds.map(d=>`<tr><td>${esc(d.numero)}</td><td>${fFecha(d.fecha)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.destino)}</td><td class="n"><b>${fmt(d.galones)}</b></td>
+      <td>${esc(d.despacha)}</td><td>${esc(d.traslada)}</td><td>${esc(d.asistente)}</td><td>${esc(d.liderEntrega)}</td><td>${esc(d.liderRecibe)}</td><td>${esc(d.tanque||'')}</td><td>${esc(d.generador||'')}${d.nivelGenerador?`<br><small style="color:var(--verde)">${esc(d.nivelGenerador)}</small>`:''}</td>
+      <td><button class="btn sec sm" title="Imprimir" onclick="imprimirDespacho('${d.id}')">🖨</button> <button class="btn sec sm" title="PDF" onclick="pdfDespacho('${d.id}')">📄</button> <button class="btn sec sm" title="Modificar" onclick="formDespacho('${d.centroId}','${d.id}')">✏</button> <button class="btn sec sm" title="Eliminar" onclick="eliminarDespacho('${d.id}')">🗑</button></td></tr>`).join('')
+      + `<tr><td colspan="5"><b>TOTAL</b></td><td class="n"><b>${fmt(ds.reduce((s,d)=>s+num(d.galones),0))}</b></td><td colspan="8"></td></tr>`
+      : '<tr><td colspan="14" style="text-align:center;color:var(--sub)">Sin registros</td></tr>'}</table></div></div>`;
+
+  const ing = recFiltradas();
+  h += `<div class="panel"><h3>⛽ Recargas de los tanques de distribución</h3>
+    <div class="filtros"><span style="font-size:12px;color:var(--sub)">Usa los mismos filtros de centro y fechas de arriba.</span>
+      <button class="btn verde sm" onclick="excelRecargas()">📊 Exportar Excel</button><button class="btn rojo sm" onclick="pdfRecargas()">📄 Exportar PDF</button></div>
+    <div class="tw"><table><tr><th>Fecha</th><th>Hora</th><th>Centro</th><th>Tanque</th><th class="n">Galones</th><th>Nivel del tanque</th><th>Proveedor</th><th>Factura / Guía</th><th>Entrega (chofer)</th><th>Placa vehículo</th><th>Recibe</th><th>Observación</th><th></th></tr>
+    ${ing.length ? ing.map(i=>`<tr><td>${fFecha(i.fecha)}</td><td>${esc(i.hora)}</td><td>${esc(i.centro)}</td><td>${esc(i.tanque||'')}</td><td class="n"><b style="color:var(--verde)">+${fmt(i.galones)}</b></td>
+      <td>${i.antes!==undefined?`${fmt(i.antes)} → <b>${fmt(i.despues)}</b> gal`:''}</td><td>${esc(i.proveedor||'')}</td><td>${esc(i.factura||'')}</td><td>${esc(i.entrega||'')}</td><td>${esc(i.placa||'')}</td><td>${esc(i.recibe||'')}</td><td>${esc(i.obs||'')}</td>
+      <td><button class="btn sec sm" title="Modificar" onclick="formIngreso('${i.centroId}','${i.id}')">✏</button> <button class="btn sec sm" title="Eliminar" onclick="eliminarIngreso('${i.id}')">🗑</button></td></tr>`).join('')
+      + `<tr><td colspan="4"><b>TOTAL RECARGADO</b></td><td class="n"><b>${fmt(ing.reduce((s,i)=>s+num(i.galones),0))}</b></td><td colspan="8"></td></tr>`
+      : '<tr><td colspan="13" style="text-align:center;color:var(--sub)">Sin recargas registradas</td></tr>'}</table></div></div>`;
+  $('main').innerHTML = h;
+}
+function recFiltradas(){
+  return state.ingresos.filter(i => (!filtro.centro||i.centroId===filtro.centro) && (!filtro.desde||i.fecha>=filtro.desde) && (!filtro.hasta||i.fecha<=filtro.hasta))
+    .sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+}
+function despFiltrados(){
+  return state.despachos.filter(d => (!filtro.centro||d.centroId===filtro.centro) && (!filtro.desde||d.fecha>=filtro.desde) && (!filtro.hasta||d.fecha<=filtro.hasta))
+    .sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+}
+
+/* --- Crear / editar centro con sus tanques --- */
+let tqTmp = [];
+function formCentro(id){
+  const c = id ? state.centros.find(x=>x.id===id) : {};
+  tqTmp = tqs(c).length ? tqs(c).map(t=>({...t})) : (id ? [{id:uid(), material:'Metálico', capacidad:num(c.galones), galones:num(c.galones), enUso:true}] : [{id:uid(), material:'Polietileno', capacidad:250, galones:0, enUso:true}]);
+  abrir(`<h3>${id?'Editar':'Agregar'} centro de distribución</h3>
+  <div class="fm">
+    <label class="full">Nombre o Piazza *<input id="cNom" list="dlP" value="${esc(c.nombre)}" placeholder="Escriba o elija una Piazza"><datalist id="dlP">${PIAZZAS.map(p=>`<option value="${p}">`).join('')}</datalist></label>
+    <label class="full">Observación<input id="cObs" value="${esc(c.obs)}"></label>
+    <div class="sep">Tanques</div>
+    <div class="full" id="tqEd"></div>
+    <div class="full"><button class="btn sec sm" onclick="tqLeer();tqTmp.push({id:uid(),material:'Polietileno',capacidad:250,galones:0,enUso:true});tqPintar()">+ Agregar tanque</button></div>
+  </div><div class="err" id="fErr"></div>
+  <div class="acciones"><button class="btn sec" onclick="cerrar()">Cancelar</button><button class="btn verde" onclick="guardarCentro('${id||''}')">💾 Guardar</button></div>`);
+  tqPintar();
+}
+function tqPintar(){
+  $('tqEd').innerHTML = `<div class="tw"><table><tr><th>#</th><th>Material</th><th>Capacidad (gal)</th><th>Galones actuales</th><th>En uso</th><th></th></tr>
+  ${tqTmp.map((t,i)=>{ const m=MATERIALES[t.material]||MATERIALES['Polietileno']; return `<tr style="background:${m.bg}"><td><b style="color:${m.c}">${i+1}</b></td>
+    <td><select id="tqM${i}">${Object.keys(MATERIALES).map(k=>`<option ${k===t.material?'selected':''}>${k}</option>`).join('')}</select></td>
+    <td><input id="tqC${i}" type="number" min="1" step="0.1" value="${num(t.capacidad)}" style="width:100px"></td>
+    <td><input id="tqG${i}" type="number" min="0" step="0.1" value="${num(t.galones)}" style="width:100px"></td>
+    <td style="text-align:center"><input id="tqU${i}" type="checkbox" ${t.enUso!==false?'checked':''} style="width:auto"></td>
+    <td><button class="btn sec sm" onclick="tqLeer();tqTmp.splice(${i},1);tqPintar()">🗑</button></td></tr>`; }).join('')}</table></div>`;
+}
+function tqLeer(){ tqTmp = tqTmp.map((t,i)=>({...t, material:$('tqM'+i).value, capacidad:num($('tqC'+i).value), galones:num($('tqG'+i).value), enUso:$('tqU'+i).checked})); }
+function guardarCentro(id){
+  tqLeer();
+  const nombre=$('cNom').value.trim();
+  if(!nombre){ $('fErr').textContent='Ingrese el nombre del centro.'; return; }
+  if(!tqTmp.length){ $('fErr').textContent='Agregue al menos un tanque.'; return; }
+  const exc = tqTmp.findIndex(t=>t.galones>t.capacidad);
+  if(exc>=0){ $('fErr').textContent=`El tanque ${exc+1} tiene más galones que su capacidad.`; return; }
+  const c = sync(Object.assign({}, id?state.centros.find(x=>x.id===id):{id:uid(), creado:Date.now()}, {nombre,  obs:$('cObs').value.trim(), tanques:tqTmp}));
+  put('centros', c); cerrar(); render(); toast('Centro guardado');
+}
+function eliminarCentro(id){
+  if(!confirm('¿Eliminar este centro? Los formularios ya registrados se conservarán.')) return;
+  del('centros', id); render();
+}
+const tqNombre = (c,t) => t ? `Tanque ${tqs(c).indexOf(t)+1} · ${t.material} ${fmt(t.capacidad)} gal` : '';
+function selTanque(c, salida, selId, onch){
+  const t = tqs(c); if(!t.length) return '';
+  const def = t.find(x=>x.id===selId) || (salida ? (t.find(x=>x.enUso!==false && num(x.galones)>0) || t[0]) : (t.find(x=>x.enUso!==false && num(x.galones)<num(x.capacidad)) || t[0]));
+  return `<label class="full">Tanque *<select id="xTq" ${onch?`onchange="${onch}"`:''}>${t.map(x=>`<option value="${x.id}" ${x===def?'selected':''}>${esc(tqNombre(c,x))} — tiene ${fmt(x.galones)} gal${x.enUso===false?' (sin uso)':''}</option>`).join('')}</select></label>`;
+}
+function formDespacho(cid, did){
+  const d = did ? state.despachos.find(x=>x.id===did) : null;
+  const c = state.centros.find(x=>x.id===(d?d.centroId:cid)) || {nombre:d?d.origen:'', tanques:[]};
+  const cv = d ? revertirSalida(c, d) : c;   // disponible sin contar esta salida
+  const v = k => esc(d ? (d[k] ?? '') : '');
+  const otro = d && !PIAZZAS.includes(d.destino);
+  abrir(`<h3>⬆ ${d?'Modificar salida '+esc(d.numero):'Formulario de salida de combustible'}</h3>
+  <div class="fm">
+    <label>Piazza / centro de donde sale<input value="${esc(c.nombre)}" readonly></label>
+    <label>Piazza a la que se dirige *<select id="dDest" onchange="$('dOtro').style.display=this.value==='__o'?'block':'none';genDestino()"><option value="">— Seleccione —</option>${PIAZZAS.map(p=>`<option ${d&&d.destino===p?'selected':''}>${p}</option>`).join('')}<option value="__o" ${otro?'selected':''}>Otro…</option></select>
+      <input id="dOtro" placeholder="Especifique destino" value="${otro?v('destino'):''}" style="display:${otro?'block':'none'};margin-top:4px"></label>
+    <div class="full" id="dGenBox"></div>
+    ${selTanque(cv, true, d?d.tanqueId:'', 'prevReparto()')}
+    <label>Galones que retiran * <span style="font-weight:400">(total centro ${fmt(cv.galones)})</span><input id="dGal" type="number" min="0.1" step="0.1" value="${v('galones')}" oninput="prevGen();prevReparto()"></label>
+    <div class="full quedan" id="dRep" style="margin:0;text-align:left"></div>
+    <label>Fecha<input id="dFecha" type="date" value="${d?v('fecha'):hoy()}"></label>
+    <label>Hora<input id="dHora" type="time" value="${d?v('hora'):ahora()}"></label>
+    <label>Quién despacha *<input id="dDesp" value="${v('despacha')}"></label>
+    <label>Quién traslada *<input id="dTras" value="${v('traslada')}"></label>
+    <label>Asistente supervisora<input id="dAsis" value="${v('asistente')}"></label>
+    <label>Líder que entrega el combustible<input id="dLE" value="${v('liderEntrega')}"></label>
+    <label>Líder que recibe el combustible<input id="dLR" value="${v('liderRecibe')}"></label>
+  </div><div class="err" id="fErr"></div>
+  <div class="acciones"><button class="btn sec" onclick="cerrar()">Cancelar</button><button class="btn verde" onclick="guardarDespacho('${c.id||cid}',false,'${did||''}')">💾 Guardar</button><button class="btn" onclick="guardarDespacho('${c.id||cid}',true,'${did||''}')">💾 Guardar e imprimir</button></div>`);
+  window._despEdit = d; window._despCentro = cv; prevReparto();
+  genDestino(d ? (d.generadorId || '') : null);
+}
+const genNombre = g => g ? `${g.bloque?g.bloque+' · ':''}${g.ubicacion}` : '';
+/* Generador tal como estaba antes de la salida que se está modificando */
+function genSinDespacho(g){
+  const d = window._despEdit;
+  const ids = d ? ['desp-'+d.id, 'desp-'+d.id+'-ini'] : [];
+  if(!g || !d || !hist(g).some(r=>ids.includes(r.id))) return g;
+  const g2 = {...g, historial: hist(g).filter(r=>!ids.includes(r.id))};
+  if(!g2.historial.length){ delete g2.nivel; return g2; }
+  return recalc(g2);
+}
+const genActual = () => $('dGen') ? genSinDespacho(state.generadores.find(x=>x.id===$('dGen').value)) : null;
+function genDestino(sel){
+  const dest = $('dDest').value, gens = state.generadores.filter(g=>g.piazza===dest).sort((a,b)=>((a.bloque||'')+a.ubicacion).localeCompare((b.bloque||'')+b.ubicacion));
+  if(!gens.length){ $('dGenBox').innerHTML = dest && dest!=='__o' ? '<div class="nota">Esta Piazza no tiene generadores registrados.</div>' : ''; return; }
+  const d = window._despEdit;
+  $('dGenBox').innerHTML = `<div class="fm" style="background:#f3f6fa;border-radius:10px;padding:10px">
+    <label class="full">Generador / bloque al que va el combustible *<select id="dGen" onchange="prevGen()">
+      ${gens.map(g0=>{ const g=genSinDespacho(g0); return `<option value="${g.id}" ${sel===g.id?'selected':''}>${esc(genNombre(g))} · tanque ${fmt(g.capacidad)} gal — ${tieneNivel(g)?`${num(g.nivel)}% · faltan ${fmt(num(g.capacidad)-galRest(g))} gal`:'sin registro de nivel'}</option>`; }).join('')}
+      <option value="" ${sel===''?'selected':''}>— Sin generador específico —</option></select></label>
+    <label class="full" id="dNivBox" style="display:none">El generador no tiene nivel registrado. Nivel que tenía ANTES de recargar (%) <span id="dNivGal" style="font-weight:400"></span><input id="dNivAnt" type="number" min="0" max="100" step="1" oninput="prevGen()" value="${d&&d.nivelAntes!==undefined?d.nivelAntes:''}"></label>
+    <label class="full" style="flex-direction:row;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="dAct" ${d&&d.generadorId&&!d.nivelGenerador?'':'checked'} style="width:auto" onchange="prevGen()"> Actualizar automáticamente el nivel del generador con estos galones</label>
+    <div class="full quedan" id="dGenPrev" style="margin:0"></div></div>`;
+  prevGen();
+}
+/* Nivel base (%) del generador antes de la carga */
+function nivelBase(g){
+  if(tieneNivel(g)) return num(g.nivel);
+  const x = $('dNivAnt') ? $('dNivAnt').value : ''; return x==='' ? null : Math.max(0, Math.min(100, num(x)));
+}
+function nivelTrasCarga(g, gal, base){ const cap = num(g.capacidad); return cap>0 ? Math.min(100, Math.round((cap*base/100+gal)/cap*100)) : base; }
+function prevGen(){
+  const box = $('dGenPrev'); if(!box) return;
+  const g = genActual(), gal = num($('dGal').value);
+  $('dNivBox').style.display = g && !tieneNivel(g) && $('dAct').checked ? 'flex' : 'none';
+  if(g && $('dNivAnt').value!=='') $('dNivGal').textContent = `= ${fmt(num(g.capacidad)*num($('dNivAnt').value)/100)} gal de ${fmt(g.capacidad)}`; else $('dNivGal').textContent = '';
+  if(!g){ box.innerHTML=''; return; }
+  const capTxt = `<div style="font-size:15px;margin-bottom:4px">🛢 Capacidad del tanque del generador: <b>${fmt(g.capacidad)} galones</b> (${fmt(num(g.capacidad)*GAL_L)} L)</div>`;
+  const base = nivelBase(g);
+  if(base===null){ box.innerHTML = capTxt + '<span style="color:#b7791f">Ingrese el nivel que tenía el generador antes de recargar para poder actualizarlo.</span>'; return; }
+  const cap = num(g.capacidad), falt = cap - cap*base/100;
+  if(!$('dAct').checked || gal<=0){ box.innerHTML = capTxt + `Nivel actual: <b style="color:${color(base)}">${base}%</b> · le faltan ${fmt(falt)} gal para llenarse`; return; }
+  const n = nivelTrasCarga(g, gal, base);
+  box.innerHTML = capTxt + `Generador: <b style="color:${color(base)}">${base}%</b> → <b style="color:${color(n)}">${n}%</b> (${fmt(Math.min(cap, cap*base/100+gal))} de ${fmt(cap)} gal)${gal>falt?` · <b style="color:var(--rojo)">sobran ${fmt(gal-falt)} gal, el tanque solo recibe ${fmt(falt)}</b>`:''}`;
+}
+function sigNumero(){
+  const m = state.despachos.reduce((x,d)=>Math.max(x, parseInt(String(d.numero).replace(/\D/g,''))||0),0);
+  return 'D-'+String(m+1).padStart(4,'0');
+}
+/* Quita del historial del generador el abastecimiento de una salida */
+function quitarAbastecimiento(d){
+  const g0 = d && d.generadorId && state.generadores.find(x=>x.id===d.generadorId);
+  const ids = ['desp-'+d.id, 'desp-'+d.id+'-ini'];
+  if(g0 && hist(g0).some(r=>ids.includes(r.id))){ const g = {...g0, historial: hist(g0).filter(r=>!ids.includes(r.id))}; if(!g.historial.length) delete g.nivel; else recalc(g); put('generadores', g); }
+}
+function guardarDespacho(cid, imprimir, did){
+  const old = did ? state.despachos.find(x=>x.id===did) : null;
+  const cBase = state.centros.find(x=>x.id===cid);
+  if(!cBase){ $('fErr').textContent='El centro de distribución de esta salida ya no existe.'; return; }
+  const c0 = old ? revertirSalida(cBase, old) : cBase;
+  let dest = $('dDest').value; if(dest==='__o') dest=$('dOtro').value.trim();
+  const gal = num($('dGal').value), tid = $('xTq') ? $('xTq').value : '', t = tqs(c0).find(x=>x.id===tid);
+  const f = {despacha:$('dDesp').value.trim(), traslada:$('dTras').value.trim()};
+  if(!dest || gal<=0 || !f.despacha || !f.traslada){ $('fErr').textContent='Complete destino, galones, quién despacha y quién traslada.'; return; }
+  const rep = repartir(c0, tid, gal);
+  if(!rep){ $('fErr').textContent=`No hay suficiente combustible en el centro. Disponible en total: ${fmt(c0.galones)} gal.`; return; }
+  const gen = genActual(), act = gen && $('dAct').checked, base = gen ? nivelBase(gen) : null;
+  if($('dGen') && !gen && !confirm('No seleccionó un generador. ¿Guardar la salida sin generador de destino?')) return;
+  if(act && base===null){ $('fErr').textContent='Ingrese el nivel que tenía el generador antes de recargar, o desmarque "Actualizar automáticamente".'; return; }
+  if(act){ const falt = num(gen.capacidad)*(100-base)/100; if(gal > falt && !confirm(`Los ${fmt(gal)} gal superan lo que le falta al generador (${fmt(falt)} gal). ¿Guardar igual? El nivel quedará en 100%.`)) return; }
+  // revertir efectos de la salida anterior
+  if(old) quitarAbastecimiento(old);
+  const c = rep.c;
+  const d = {...(old||{}), id:old?old.id:uid(), numero:old?old.numero:sigNumero(), centroId:cid, origen:c0.nombre, destino:dest, galones:gal, tanqueId:tid,
+    reparto:rep.partes, tanque: rep.partes.length>1 ? rep.partes.map(p=>`${p.nombre.split(' · ')[0]} (${fmt(p.galones)} gal)`).join(' + ') : tqNombre(c0,t),
+    generadorId:gen?gen.id:'', generador:genNombre(gen), nivelGenerador:'', nivelAntes:undefined,
+    fecha:$('dFecha').value||hoy(), hora:$('dHora').value||ahora(), ...f,
+    asistente:$('dAsis').value.trim(), liderEntrega:$('dLE').value.trim(), liderRecibe:$('dLR').value.trim(),
+    saldoAntes:num(c0.galones), saldoDespues:num(c.galones), creado:old?old.creado:Date.now(), editado:old?Date.now():undefined};
+  if(act){
+    const g = {...state.generadores.find(x=>x.id===gen.id)}, h = hist(g), n = nivelTrasCarga(gen, gal, base);
+    if(!tieneNivel(gen)) h.push({id:'desp-'+d.id+'-ini', fecha:d.fecha, hora:d.hora, nivel:base, horometro:'', responsable:d.liderRecibe||d.traslada, nota:`Nivel antes de recargar (salida ${d.numero})`, t:Date.now()-1});
+    h.push({id:'desp-'+d.id, fecha:d.fecha, hora:d.hora, nivel:n, horometro:'', responsable:d.liderRecibe||d.traslada,
+      nota:`Abastecido ${fmt(gal)} gal · Salida ${d.numero} desde ${d.origen}`, t:Date.now()});
+    g.historial = h; g.actualizado = Date.now(); recalc(g); put('generadores', g);
+    d.nivelGenerador = `${base}% → ${n}%`; d.nivelAntes = base;
+  }
+  put('despachos', d); put('centros', c);
+  cerrar(); render(); revisarAlarma();
+  toast(`Salida ${d.numero} ${old?'modificada':'registrada'}${d.nivelGenerador?' · generador '+d.nivelGenerador:''}`);
+  if(imprimir) imprimirDespacho(d.id);
+}
+function eliminarDespacho(id){
+  const d = state.despachos.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar la salida ${d.numero}? Se devolverán ${fmt(d.galones)} galones al centro "${d.origen}"${d.nivelGenerador?" y se quitará el abastecimiento del historial del generador":""}.`)) return;
+  const c = state.centros.find(x=>x.id===d.centroId);
+  if(c) put('centros', revertirSalida(c, d));
+  quitarAbastecimiento(d);
+  del('despachos', id); render(); revisarAlarma();
+}
+function formIngreso(cid, iid, tid){
+  const c = state.centros.find(x=>x.id===cid), r = iid ? state.ingresos.find(x=>x.id===iid) : {fecha:hoy(), hora:ahora()};
+  const v = k => esc(r[k] ?? '');
+  abrir(`<h3>⛽ ${iid?'Modificar':'Registrar'} recarga · ${esc(c.nombre)}</h3>
+  <div class="fm">
+    ${selTanque(c,false, tid || r.tanqueId, 'prevRecarga()')}
+    <label>Galones recargados *<input id="iGal" type="number" min="0.1" step="0.1" value="${v('galones')}" oninput="prevRecarga()"></label>
+    <label>Quién recibe<input id="iRec" value="${v('recibe')}"></label>
+    <label>Fecha<input id="iFecha" type="date" value="${v('fecha')}"></label>
+    <label>Hora<input id="iHora" type="time" value="${v('hora')}"></label>
+    <label>Proveedor<input id="iProv" value="${v('proveedor')}"></label>
+    <label>N° factura / guía<input id="iFac" value="${v('factura')}"></label>
+    <label>Quién entrega (chofer)<input id="iEnt" value="${v('entrega')}"></label>
+    <label>Placa del vehículo<input id="iPlaca" value="${v('placa')}"></label>
+    <label class="full">Observación<input id="iObs" value="${v('obs')}"></label>
+    <div class="full quedan" id="iPrev"></div>
+  </div><div class="err" id="fErr"></div>
+  <div class="acciones"><button class="btn sec" onclick="cerrar()">Cancelar</button><button class="btn verde" onclick="guardarIngreso('${cid}','${iid||''}')">💾 Guardar recarga</button></div>`);
+  window._recEdit = iid ? r : null; window._recCid = cid;
+  prevRecarga();
+}
+/* Centro con la recarga anterior revertida (cuando se modifica una recarga) */
+const centroSinRecarga = (c, r) => r ? ajustarTanque(c, r.tanqueId, -num(r.galones)) : c;
+function prevRecarga(){
+  const c = centroSinRecarga(state.centros.find(x=>x.id===window._recCid), window._recEdit);
+  const tid = $('xTq') ? $('xTq').value : '', t = tqs(c).find(x=>x.id===tid), gal = num($('iGal').value);
+  if(!t){ $('iPrev').innerHTML = gal>0 ? `El centro pasará de ${fmt(c.galones)} a <b>${fmt(num(c.galones)+gal)}</b> galones` : ''; return; }
+  const ant = num(t.galones), nue = ant+gal, cap = num(t.capacidad), pct = cap ? nue/cap*100 : 0;
+  $('iPrev').innerHTML = `Nivel del tanque: ${fmt(ant)} gal → <b style="color:${nue>cap?'var(--rojo)':color(Math.min(pct,100))}">${fmt(nue)} gal (${Math.round(pct)}%)</b> de ${fmt(cap)}${nue>cap?' · <b style="color:var(--rojo)">supera la capacidad</b>':''}`;
+}
+function guardarIngreso(cid, iid){
+  const gal = num($('iGal').value); if(gal<=0){ $('fErr').textContent='Ingrese los galones recargados.'; return; }
+  const old = iid ? state.ingresos.find(x=>x.id===iid) : null;
+  const c0 = centroSinRecarga(state.centros.find(x=>x.id===cid), old), tid = $('xTq') ? $('xTq').value : '', t = tqs(c0).find(x=>x.id===tid);
+  if(t && num(t.galones)+gal > num(t.capacidad)){ $('fErr').textContent=`Ese tanque solo admite ${fmt(num(t.capacidad)-num(t.galones))} gal más (capacidad ${fmt(t.capacidad)}).`; return; }
+  const antes = t ? num(t.galones) : num(c0.galones);
+  put('ingresos', {...(old||{}), id:iid||uid(), centroId:cid, centro:c0.nombre, tanqueId:tid, tanque:tqNombre(c0,t), galones:gal, antes, despues:antes+gal,
+    recibe:$('iRec').value.trim(), fecha:$('iFecha').value||hoy(), hora:$('iHora').value||ahora(), proveedor:$('iProv').value.trim(), factura:$('iFac').value.trim(),
+    entrega:$('iEnt').value.trim(), placa:$('iPlaca').value.trim(), obs:$('iObs').value.trim(), creado:old?old.creado:Date.now(), editado:old?Date.now():undefined});
+  put('centros', ajustarTanque(c0, tid, gal)); cerrar(); render(); toast(iid?'Recarga modificada':'Recarga registrada · nivel actualizado');
+}
+function eliminarIngreso(id){
+  const i = state.ingresos.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar esta recarga? Se descontarán ${fmt(i.galones)} galones del centro.`)) return;
+  const c = state.centros.find(x=>x.id===i.centroId);
+  if(c) put('centros', ajustarTanque(c, i.tanqueId, -num(i.galones)));
+  del('ingresos', id); render();
+}
+
+/* ===== Impresión y exportación ===== */
+const CAMPOS = [['numero','N°'],['fecha','Fecha'],['hora','Hora'],['origen','Sale de'],['destino','Se dirige a'],['galones','Galones'],['despacha','Quién despacha'],['traslada','Quién traslada'],['asistente','Asistente supervisora'],['liderEntrega','Líder que entrega'],['liderRecibe','Líder que recibe'],['tanque','Tanque'],['generador','Generador destino'],['nivelGenerador','Nivel generador']];
+const val = (d,k) => k==='fecha' ? fFecha(d.fecha) : k==='galones' ? fmt(d.galones) : (d[k]||'');
+const firmas = [['despacha','Despacha'],['traslada','Traslada'],['asistente','Asistente supervisora'],['liderEntrega','Líder que entrega'],['liderRecibe','Líder que recibe']];
+const CSSP = `body{font-family:Arial,sans-serif;color:#000;margin:24px}h2{text-align:center;margin:0 0 4px}.s{text-align:center;color:#444;margin-bottom:16px;font-size:13px}table{border-collapse:collapse;width:100%;font-size:12px}td,th{border:1px solid #444;padding:6px}th{background:#e8edf3}.fir{display:flex;flex-wrap:wrap;gap:40px 30px;margin-top:60px}.fir div{width:30%;min-width:170px;text-align:center;border-top:1px solid #000;padding-top:4px;font-size:12px}@page{margin:14mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.ngrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ngrupo{border:1px solid #999;border-radius:6px;padding:8px}.ntit{font-weight:bold;margin-bottom:6px;font-size:13px}
+.nbar{display:grid;grid-template-columns:38% 1fr;gap:8px;align-items:center;margin:5px 0;font-size:11px}.ntrack{position:relative;height:18px;background:#eee;border-radius:4px;overflow:hidden}
+.nfill{height:100%}.nmark{position:absolute;top:0;bottom:0;border-left:1px dashed #888}.nval{position:absolute;left:6px;top:0;bottom:0;display:flex;align-items:center;font-size:10px;font-weight:bold}
+.nesc{display:flex;justify-content:space-between;font-size:9px;color:#666;margin-left:calc(38% + 8px)}.nota{font-size:11px}`;
+function ventanaImp(titulo, cuerpo){
+  const w = window.open('','_blank'); if(!w) return toast('Permita ventanas emergentes para imprimir');
+  w.document.write(`<html><head><title>${titulo}</title><style>${CSSP}</style></head><body>${cuerpo}<script>setTimeout(()=>{print()},300)<\/script></body></html>`);
+  w.document.close();
+}
+function imprimirDespacho(id){
+  const d = state.despachos.find(x=>x.id===id);
+  ventanaImp(d.numero, `<h2>ORDEN DE SALIDA DE COMBUSTIBLE</h2><div class="s">N° ${esc(d.numero)} · Emitido ${fFecha(d.fecha)} ${esc(d.hora)}</div>
+  <table>${CAMPOS.map(([k,l])=>`<tr><th style="width:38%;text-align:left">${l}</th><td>${esc(val(d,k))}${k==='galones'?' galones':''}</td></tr>`).join('')}
+  <tr><th style="text-align:left">Saldo del centro después de la salida</th><td>${fmt(d.saldoDespues)} galones</td></tr></table>
+  <div class="fir">${firmas.map(([k,l])=>`<div>${esc(d[k]||'')}<br><b>${l}</b></div>`).join('')}</div>`);
+}
+function imprimirListado(){
+  const ds = despFiltrados();
+  ventanaImp('Salidas de combustible', `<h2>REGISTRO DE SALIDAS DE COMBUSTIBLE</h2><div class="s">${rango()}</div>
+  <table><tr>${CAMPOS.map(c=>`<th>${c[1]}</th>`).join('')}</tr>${ds.map(d=>`<tr>${CAMPOS.map(([k])=>`<td>${esc(val(d,k))}</td>`).join('')}</tr>`).join('')}
+  <tr><th colspan="5" style="text-align:left">TOTAL</th><th>${fmt(ds.reduce((s,d)=>s+num(d.galones),0))}</th><th colspan="8"></th></tr></table>`);
+}
+function rango(){
+  const c = filtro.centro ? (state.centros.find(x=>x.id===filtro.centro)||{}).nombre : 'Todos los centros';
+  return `${c} · ${filtro.desde?fFecha(filtro.desde):'Inicio'} a ${filtro.hasta?fFecha(filtro.hasta):'Hoy'} · Generado ${new Date().toLocaleString('es-EC')}`;
+}
+function excelDespachos(){
+  const ds = despFiltrados(); if(!ds.length) return toast('No hay registros para exportar');
+  const rows = ds.map(d => { const o={}; CAMPOS.forEach(([k,l])=>o[l]= k==='galones'?num(d.galones):k==='fecha'?fFecha(d.fecha):(d[k]||'')); o['Saldo centro después']=num(d.saldoDespues); return o; });
+  rows.push({'N°':'TOTAL','Galones':ds.reduce((s,d)=>s+num(d.galones),0)});
+  const ws = XLSX.utils.json_to_sheet(rows); ws['!cols'] = Object.keys(rows[0]).map(k=>({wch:Math.max(12,k.length+2)}));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Salidas');
+  const ing = recFiltradas().map(filaRec);
+  if(ing.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ing), 'Recargas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.centros.flatMap(c=>tqs(c).length?tqs(c).map((t,i)=>({Centro:c.nombre,Tanque:i+1,Material:t.material,'Capacidad (gal)':num(t.capacidad),'Galones actuales':num(t.galones),'En uso':t.enUso===false?'No':'Sí'})):[{Centro:c.nombre,'Galones actuales':num(c.galones)}])), 'Centros');
+  XLSX.writeFile(wb, `Salidas_Combustible_${hoy()}.xlsx`);
+}
+function pdfDespachos(){
+  const ds = despFiltrados(); if(!ds.length) return toast('No hay registros para exportar');
+  const { jsPDF } = window.jspdf; const doc = new jsPDF({orientation:'landscape'});
+  doc.setFontSize(14); doc.text('REGISTRO DE SALIDAS DE COMBUSTIBLE', 148, 14, {align:'center'});
+  doc.setFontSize(9); doc.text(rango(), 148, 20, {align:'center'});
+  doc.autoTable({startY:25, head:[CAMPOS.map(c=>c[1])], body:ds.map(d=>CAMPOS.map(([k])=>val(d,k))),
+    foot:[['TOTAL','','','','',fmt(ds.reduce((s,d)=>s+num(d.galones),0)),'','','','','','','','']],
+    styles:{fontSize:8,cellPadding:2}, headStyles:{fillColor:[15,42,74]}, footStyles:{fillColor:[230,234,240],textColor:0}});
+  doc.save(`Salidas_Combustible_${hoy()}.pdf`);
+}
+function pdfDespacho(id){
+  const d = state.despachos.find(x=>x.id===id);
+  const { jsPDF } = window.jspdf; const doc = new jsPDF();
+  doc.setFontSize(15); doc.text('ORDEN DE SALIDA DE COMBUSTIBLE', 105, 18, {align:'center'});
+  doc.setFontSize(10); doc.text(`N° ${d.numero}`, 105, 25, {align:'center'});
+  doc.autoTable({startY:32, body:[...CAMPOS.map(([k,l])=>[l, val(d,k)+(k==='galones'?' galones':'')]), ['Saldo del centro después', fmt(d.saldoDespues)+' galones']],
+    styles:{fontSize:10,cellPadding:3}, columnStyles:{0:{fontStyle:'bold',fillColor:[232,237,243],cellWidth:70}}, theme:'grid'});
+  let y = doc.lastAutoTable.finalY + 35;
+  firmas.forEach(([k,l],i)=>{
+    const x = 15 + (i%3)*62; if(i===3) y += 35;
+    doc.line(x, y, x+52, y); doc.setFontSize(9);
+    doc.text(d[k]||'', x+26, y+5, {align:'center'}); doc.setFont(undefined,'bold'); doc.text(l, x+26, y+10, {align:'center'}); doc.setFont(undefined,'normal');
+  });
+  doc.save(`Salida_${d.numero}.pdf`);
+}
+
+/* ===== Respaldo ===== */
+function exportarRespaldo(){
+  const b = new Blob([JSON.stringify(state)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `respaldo_generadores_${hoy()}.json`; a.click();
+}
+function importarRespaldo(inp){
+  const f = inp.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => { try{
+    const s = JSON.parse(r.result); if(!confirm('¿Restaurar este respaldo? Reemplazará los datos actuales.')) return;
+    COLS.forEach(c => (s[c]||[]).forEach(o => put(c, o)));
+    COLS.forEach(c => state[c].filter(o => !(s[c]||[]).some(x=>x.id===o.id)).forEach(o => del(c, o.id)));
+    render(); revisarAlarma(); toast('Respaldo restaurado');
+  }catch(e){ toast('Archivo no válido'); } inp.value=''; };
+  r.readAsText(f);
+}
+
+/* ===== Datos iniciales cargados desde el Excel "DATOS DE GENERADORES PLAZAS" ===== */
+const SEED = [{"id": "xls-villa-club-1", "piazza": "Villa Club", "bloque": "Bloque A", "ubicacion": "El bloque debajo de la administración", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Cummins (Cummins Power Generation)", "modelo": "C100 D6 4", "serial": "J08T010605", "speed": "1800", "bateriaSpec": "12 VDC", "kw": "100", "power": "125", "capacidad": 50.0, "consumo": "7,1 – 7,5 galones por hora", "autonomia": "Entre 6,5 – 7 horas", "placaExtra": "Fabricante: Cummins Brasil Ltda. – Guarulhos, São Paulo\nPaís de fabricación: Brasil\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nConexión: Estrella (WYE)\nPotencia Standby: 100 kW / 125 kVA\nPotencia Prime: 90 kW / 113 kVA\nFactor de potencia: 0,8"}, {"id": "xls-villa-club-2", "piazza": "Villa Club", "bloque": "Bloque B", "ubicacion": "Atrás de los baños públicos - Patio de comida", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Cummins (Cummins Power Generation)", "modelo": "C170 D6 4", "serial": "D08T008565", "speed": "1800", "bateriaSpec": "12 VDC", "kw": "170", "power": "212", "capacidad": 150.0, "consumo": "11,8 – 12,5 galones por hora", "autonomia": "Entre 12 – 12,5 horas", "placaExtra": "Fabricante: Cummins Brasil Ltda. – Guarulhos, São Paulo\nPaís de fabricación: Brasil\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nConexión: Estrella (WYE)\nPotencia Standby: 170 kW / 212 kVA\nPotencia Prime: 165 kW / 206 kVA\nFactor de potencia: 0,8"}, {"id": "xls-fcg-1", "piazza": "FCG", "bloque": "", "ubicacion": "Por el cuarto de rack", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Doosan", "modelo": "DP158LD", "serial": "DV15-00G06931784 (parcialmente legible)", "anio": "2019", "speed": "1800", "kw": "556", "capacidad": 80.0, "consumo": "22 – 25 galones", "autonomia": "Entre 4 – 7 horas.", "placaExtra": "Fabricante: Doosan Infracore Co., Ltd. (Corea del Sur)\nPotencia Standby: 756 PS / 556 kW\nPotencia Prime: 687 PS / 505 kW\nDiámetro de cilindro: 128 mm\nCarrera: 142 mm\nCilindrada: 14,618 litros (V8)\nDatos del alternador:: Stamford HC.I534D1, serie X20L503630"}, {"id": "xls-la-joya-1", "piazza": "La Joya", "bloque": "", "ubicacion": "La antigua administración", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Cummins", "speed": "1800", "kw": "175", "capacidad": 80.0, "consumo": "11,8 – 12,5 galones", "autonomia": "Entre 6,5 – 7 horas", "placaExtra": "Serie del motor: C (modelo 6CTA8.3)\nCilindrada: 8,3 litros (6 cilindros)\nCPL (código de configuración): 1786\nCódigo de calibración: 850\nPotencia: 175 kW (a 1800 RPM) / 153 kW (régimen alterno)", "modelo": "6CTA8.3"}, {"id": "xls-ciudad-celeste-1", "piazza": "Ciudad Celeste", "bloque": "Bloque A", "ubicacion": "Arriba de los baños públicos por el local La Carnicería", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Modasa", "modelo": "MD-205", "anio": "2019", "serial": "X23187C", "kw": "205", "power": "256", "capacidad": 70.0, "consumo": "14 – 15 galones por hora", "autonomia": "Entre 4,5 – 5 horas", "placaExtra": "Color: Negro\nMotor: Doosan P086TI\nSerie del motor: EBPDA968332\nAlternador: Stamford\nSerie del alternador: X19D142454\nPotencia: 205 kW / 256 kVA\nMódulo de control: DSE 7320\nCabinado: No\nProveedor: Energy Power (Quito)\nFecha de registro/arribo: 08/2019\nElaborado por: Helfy Morales"}, {"id": "xls-ciudad-celeste-2", "piazza": "Ciudad Celeste", "bloque": "Bloque B", "ubicacion": "Atrás del Supermaxi", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "modelo": "TC210LS", "serial": "TC210LS21010359", "anio": "2021", "speed": "1800", "kw": "163", "power": "204", "capacidad": 80.0, "consumo": "11,5 – 12 galones", "autonomia": "Entre 6,5 – 7 horas", "placaExtra": "Tipo: Grupo electrógeno diésel\nCódigo: 06-2SLH-K3-07\nFecha de fabricación: 06/2021\nPotencia Prime: 149 kW / 186 kVA / 488 A\nPotencia Standby: 163 kW / 204 kVA / 535 A\nVoltaje: 220/127 V\nFactor de potencia: 0,8\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nTemperatura ambiente de diseño: 40 °C\nAltitud de diseño: hasta 1000 m\nCertificaciones: ISO 9001:2015, ISO 140"}, {"id": "xls-villas-del-rey-1", "piazza": "Villas del Rey", "bloque": "", "ubicacion": "Atrás del local Nelson Market - Pasillo", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Stamford", "modelo": "UC.I274F14", "serial": "X11J420362", "speed": "1800", "kw": "152", "power": "190", "capacidad": 80.0, "consumo": "10,5 – 11 galones", "autonomia": "Entre 7 – 7,5 horas", "placaExtra": "Fabricante: Cummins Generator Technologies (China) Co., Ltd. – Wuxi, China\nN.° de orden: N57326\nPotencia: 152 kW / 190 kVA\nRégimen: Continuo\nVoltaje: 220 V\nCorriente: 498,6 A\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nFactor de potencia: 0,8\nVoltaje de excitación: 36 V\nCorriente de excitación: 1,8 A\nRegulador de voltaje (AVR): AS440\nConexión del estator: Estrella en paralelo (P STAR)\nBobinado del estator: 311\nClase de aislamiento: H\nProtección: IP 23\nTemperatura ambiente de diseño: 40 °C\nTipo de montaje: IMB15\nRefrigeración: IC01\nPeso: 530 kg"}, {"id": "xls-samborondón-1", "piazza": "Samborondón", "bloque": "Bloque A", "ubicacion": "Atrás del portal", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "FG Wilson", "modelo": "P275E1 (verificar: en la placa probablemente dice “P”, no “5”)", "serial": "FGWSCA01CBSSOO168", "anio": "2004", "speed": "1800", "bateriaSpec": "25,1 V – 90 % (sistema de 24 V)", "kw": "220", "power": "275", "capacidad": 96.0, "consumo": "16 – 17 galones", "autonomia": "Entre 5 – 6,5 horas", "placaExtra": "Motor: Perkins (serie 1300, 6 cilindros)\nPotencia Standby: 275 kVA / 220 kW (aprox.)\nPotencia Prime: 250 kVA / 200 kW (aprox.)\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nFactor de potencia: 0,8"}, {"id": "xls-samborondón-2", "piazza": "Samborondón", "bloque": "Bloque B", "ubicacion": "Atrás de la administración", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "FG Wilson", "modelo": "P110E (en tu cuadro dice “PIIOE”: las “II” y la “O” probablemente son “11” y “0”)", "serial": "5008424/60", "anio": "2004", "speed": "1800", "bateriaSpec": "13,5 V – 90 % (sistema de 12 V)", "kw": "88", "power": "110", "capacidad": 60.0, "consumo": "11,8 – 12,5 galones por hora", "autonomia": "Entre 7,5 – 8 horas", "placaExtra": "Potencia del motor: 154 HP / 115 kW\nPotencia del generador: 110 kVA / 88 kW (aprox.)"}, {"id": "xls-samborondón-3", "piazza": "Samborondón", "bloque": "Bloque C", "ubicacion": "Atrás del local Dinastía - Punto 4", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Moteurs Baudouin (Francia)", "modelo": "4M10G100/6 (4 cilindros, 60 Hz)", "serial": "BH04016420", "anio": "2022", "speed": "1800", "bateriaSpec": "13,5 V – 90 % (sistema de 12 V)", "kw": "80", "power": "100", "capacidad": 70.0, "consumo": "7 – 7,5 galones", "autonomia": "Entre 9,5 – 10 horas", "placaExtra": "Potencia del generador: 100 kVA / 80 kW (aprox.)"}, {"id": "xls-samborondón-4", "piazza": "Samborondón", "bloque": "Colegio CENU", "ubicacion": "Atrás del local Dinastía - Punto 4", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "FG WILSON", "modelo": "PIIOE", "serial": "5008424/60", "anio": "2004", "speed": "1800", "bateriaSpec": "13,5 V – 95 % (sistema de 12 V)", "kw": "100", "power": "125", "capacidad": 60.0, "consumo": "8 – 8,5 galones", "autonomia": "Entre 7 – 7,5 horas", "placaExtra": "Potencia del generador: 125 KVA/100 KW/0.80 CoS"}, {"id": "xls-ceibos-1", "piazza": "Ceibos", "bloque": "Bloque A-B", "ubicacion": "Por cuarto de CNT", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "MagnaPlus (Marathon Electric)", "modelo": "MP-160-4", "serial": "No legible", "anio": "2009", "speed": "1800", "kw": "160", "power": "200", "capacidad": 87.0, "consumo": "11 – 11,5 galones", "autonomia": "Entre 7,5 – 8 horas", "placaExtra": "Fabricante: Shanghai Marathon-Gexin Electric Co., Ltd. (China)\nN.° de parte: 4311-090007\nFecha de fabricación: 02/2009\nFrame: 431PS\nPotencia (servicio continuo): 160 kW / 200 kVA\nVoltaje: 220 V\nCorriente: 524,9 A\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nFactor de potencia: 0,8\nClase de aislamiento: H\nAumento de temperatura: 125 °C\nTemperatura ambiente de diseño: 40 °C\nProtección: IP 21\nVoltaje de campo: 45 V\nCorriente de campo: 2,0 A"}, {"id": "xls-ceibos-2", "piazza": "Ceibos", "bloque": "Bloque A-B", "ubicacion": "Por la administración", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "MagnaPlus (Marathon Electric, EE. UU.)", "modelo": "MP-160-4", "serial": "No consta (en blanco)", "speed": "1800", "kw": "160", "power": "200", "capacidad": 87.0, "consumo": "11 – 11,5 galones", "autonomia": "Entre 7,5 – 8 horas", "placaExtra": "Tipo: Generador sincrónico de corriente alterna\nN.° de parte: 4311-090008\nFrame: 431PS\nPotencia (servicio continuo): 160 kW / 200 kVA\nVoltaje: 220 V\nCorriente: 524,9 A\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nFactor de potencia: 0,8\nClase de aislamiento: H\nAumento de temperatura: 125 °C\nTemperatura ambiente de diseño: 40 °C\nProtección: IP 21\nVoltaje de campo: 45 V\nCorriente de campo: 2,0 A"}, {"id": "xls-bosques-1", "piazza": "Bosques", "bloque": "", "ubicacion": "Por el corredor trasero a la altura de Fybeca", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Gen Power", "modelo": "TY400LS", "serial": "TY400LS21011187", "anio": "2021", "speed": "1800", "kw": "322", "power": "402", "capacidad": 168.0, "consumo": "22 – 23 galones", "autonomia": "Entre 7 – 7,5 horas", "placaExtra": "País de fabricación: China\nCódigo: 2SLH-K4-07\nFecha de fabricación: 11/2021\nPotencia Prime: 292 kW / 365 kVA / 958 A\nPotencia Standby: 322 kW / 402 kVA / 1055 A\nVoltaje: 220/127 V\nFactor de potencia: 0,8\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nProtección: IP 23\nTemperatura ambiente de diseño: 40 °C\nAltitud de diseño: hasta 1000 m\nClase de rendimiento: G2\nPeso: 4395 kg\nDimensiones: 4366 × 1406 × 2231 mm\nCertificaciones: ISO 8528, ISO 9001, ISO 14001, OHSAS 18001, CE"}, {"id": "xls-murano-1", "piazza": "Murano", "bloque": "", "ubicacion": "Por el corredor trasero a la altura de Fybeca", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Gen Power (distribuidor: Inproel S.A.)", "modelo": "TB1250LS", "speed": "1800", "kw": "1000", "power": "1250", "capacidad": 238.0, "consumo": "68,6 galones", "autonomia": "Entre 3,5 horas / Con carga normal (50–75 %), el consumo baja a 34,8 – 50,4 galones por hora y la autonomía sube a 4,7 – 6,8 horas.", "placaExtra": "Motor: Baudouin 12M26G1000/6 (12 cilindros en V, 8,4 galones de cilindrada)\nAlternador: Leroy Somer TAL-A49-E\nMódulo de control: DSE 7320 MKII\nPotencia Standby: 1000 kW / 1250 kVA\nPotencia Prime: 910 kW / 1138 kVA\nCorriente: 3280 A\nVoltaje: 220/127 V\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nFactor de potencia: 0,8\nVoltaje de arranque: 24 V\nAceite (con filtros): 30,1 galones\nRefrigerante: 21,9 galones\nPeso (abierto / contenedor 20 pies): 8326 kg / 11 504 kg"}, {"id": "xls-isora-1", "piazza": "Isora", "bloque": "", "ubicacion": "Por la administración", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Gen Power (distribuidor: Inproel S.A.)", "modelo": "TC625LS", "speed": "1800", "kw": "500", "power": "625", "capacidad": 242.0, "consumo": "32,4 galones", "autonomia": "7,5 horas. Con carga normal (50–75 %), el consumo baja a 17,5 – 24,8 galones por hora y la autonomía sube a 10 – 14 horas.", "placaExtra": "Motor: Cummins KTA19-G3A (6 cilindros en línea, 5 galones de cilindrada)\nAlternador: Leroy Somer TAL-A473-C\nMódulo de control: DSE 7320\nPotencia Standby: 500 kW / 625 kVA\nPotencia Prime: 450 kW / 563 kVA\nCorriente: 1640 A\nVoltaje: 220/127 V\nFrecuencia: 60 Hz\nFases: 3 (trifásico)\nFactor de potencia: 0,8\nVoltaje de arranque: 24 V\nAceite (con filtros): 13,2 galones\nRefrigerante: 29,5 galones\nNivel de ruido (insonorizado): ≤ 82 dB a 7 m\nPeso (abierto / insonorizado): 4320 kg / 5615 kg"}, {"id": "xls-aba-palmar-1", "piazza": "Aba Palmar", "bloque": "", "ubicacion": "Cerca de la cisterna", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Kirloskar", "modelo": "4R1080TA (4 cilindros, turbo y postenfriado)", "speed": "1800", "kw": "112", "power": "140", "capacidad": 60.0, "consumo": "8,5 – 9 galones", "autonomia": "Entre 6,5 – 7 horas\nCon carga normal (50–75 %), el consumo baja a 5 – 6,5 galones por hora y la autonomía sube a 9 – 12 horas.", "placaExtra": "Fabricante: Kirloskar Oil Engines Ltd. – Kagal, India\nN.° de motor: 4H.9736/21200032\nPotencia del motor: 125,1 kW / 170 HP\nNorma: ISO 3046\nClase de regulación: M3\nPotencia del generador: 140 kVA / 112 kW (aprox.)"}, {"id": "xls-conalba-1", "piazza": "Conalba", "bloque": "", "ubicacion": "Al lado de la bodega de agrícola cañas", "fuel": "Diésel", "placa": "", "origen": "Excel DATOS DE GENERADORES PLAZAS", "marca": "Kohler", "modelo": "40R0ZJ81 (40REOZJ)", "serial": "364639", "speed": "1800", "bateriaSpec": "12 V", "kw": "40", "power": "50", "capacidad": 250.0, "consumo": "3,2 – 3,5 galones", "autonomia": "71 – 78 horas (unos 3 días)", "placaExtra": "Fabricante: Kohler Co. – Kohler, Wisconsin, EE. UU.\nEspecificación: PA-189222-81\nServicio: Standby\nPotencia: 40 kW / 50 kVA\nFactor de potencia: 0,8\nFases: 3 (trifásico)\nVoltaje (conexión de fábrica): 120/208 V (código 81)\nCorriente: 139 A\nFrecuencia: 60 Hz\nCombustible: Diésel (no consta en la placa; el modelo “ZJ” es diésel)\nAislamiento: NEMA clase H"}];
+const SEED_FLAG = 'seed_generadores_excel_v1';
+const T = (n, material, cap, enUso=true) => Array.from({length:n}, () => ({material, capacidad:cap, galones:0, enUso}));
+const SEED_CD = [
+  {id:'cd-ceibos', nombre:'Ceibos', piazza:'Ceibos', obs:'1 tanque metálico de 500 galones, 2 tanques de polietileno de 250 galones', tanques:[...T(1,'Metálico',500), ...T(2,'Polietileno',250)]},
+  {id:'cd-villa-club', nombre:'Villa Club', piazza:'Villa Club', obs:'2 tanques de polietileno de 250 galones', tanques:T(2,'Polietileno',250)},
+  {id:'cd-samborondon', nombre:'Samborondón', piazza:'Samborondón', obs:'5 tanques de polietileno de 250 galones, se están usando 2 al momento', tanques:[...T(2,'Polietileno',250), ...T(3,'Polietileno',250,false)]},
+  {id:'cd-isora', nombre:'Isora', piazza:'Isora', obs:'1 tanque de polietileno de 250 galones', tanques:T(1,'Polietileno',250)}
+].map(c => ({...c, galones:0, creado:Date.now(), tanques:c.tanques.map((t,i)=>({...t, id:c.id+'-t'+(i+1)}))}));
+const SEED_CD_FLAG = 'seed_centros_v1';
+function aplicarSeedCentros(){
+  try{ if(localStorage.getItem(SEED_CD_FLAG)) return; }catch(e){}
+  SEED_CD.forEach(x => { if(!state.centros.some(c=>c.id===x.id || c.nombre===x.nombre)) put('centros', x); });
+  try{ localStorage.setItem(SEED_CD_FLAG,'1'); }catch(e){}
+}
+function aplicarSeedLocal(){
+  try{ if(localStorage.getItem(SEED_FLAG)) return; }catch(e){}
+  SEED.forEach(x => { if(!state.generadores.some(g=>g.id===x.id)) put('generadores', {...x, creado:Date.now(), historial:[]}); });
+  try{ localStorage.setItem(SEED_FLAG,'1'); }catch(e){}
+}
+async function aplicarSeedFirebase(){
+  const sc = await db.collection('centros').get();
+  if(sc.empty) await Promise.all(SEED_CD.map(x => db.collection('centros').doc(x.id).set(x)));
+  const snap = await db.collection('generadores').get();
+  if(!snap.empty) return;
+  await Promise.all(SEED.map(x => db.collection('generadores').doc(x.id).set({...x, creado:Date.now(), historial:[]})));
+}
+
+/* ===== Inicio ===== */
+cargarLocal(); if(!FIREBASE_CONFIG.apiKey){ aplicarSeedLocal(); aplicarSeedCentros(); } render(); revisarAlarma(); initFirebase();
+</script>
+</body>
+</html>
