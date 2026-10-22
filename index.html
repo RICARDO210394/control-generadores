@@ -247,10 +247,11 @@ function cargarLocal(){
   try { const s = JSON.parse(localStorage.getItem(LS)); if(s) COLS.forEach(c => state[c] = s[c] || []); } catch(e){}
 }
 function put(col, obj){
+  obj = JSON.parse(JSON.stringify(obj)); // Firestore no acepta valores "undefined"
   const a = state[col], i = a.findIndex(x => x.id === obj.id);
   if(i >= 0) a[i] = obj; else a.push(obj);
   guardarLocal();
-  if(db) db.collection(col).doc(obj.id).set(obj).catch(e => toast('Error al sincronizar: '+e.message));
+  if(db) try{ db.collection(col).doc(obj.id).set(obj).catch(e => toast('Error al sincronizar: '+e.message)); }catch(e){ console.error(e); toast('Error al sincronizar: '+e.message); }
 }
 function del(col, id){
   state[col] = state[col].filter(x => x.id !== id);
@@ -265,7 +266,7 @@ async function initFirebase(){
     await cargarScript(b+'firebase-app-compat.js');
     await cargarScript(b+'firebase-firestore-compat.js');
     firebase.initializeApp(FIREBASE_CONFIG);
-    db = firebase.firestore();
+    db = firebase.firestore(); try{ db.settings({ignoreUndefinedProperties:true, merge:true}); }catch(e){}
     try{ await aplicarSeedFirebase(); }catch(e){ console.error(e); }
     $('estado').textContent = '🟢 En línea';
     COLS.forEach(c => db.collection(c).onSnapshot(snap => {
@@ -421,7 +422,7 @@ function canecasDe(p){
 }
 function canecasHTML(p){
   const {r, n, gal, movs} = canecasDe(p), col = n<=0?'var(--rojo)':n<=2?'#f59e0b':'#6d4c41';
-  return `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 Canecas de reserva · ${esc(p)}</h3>
+  return `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 ${esCD(p)?'Canecas del Centro de Distribución':'Canecas de reserva'} · ${esc(p)}</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn verde sm" onclick="formCaneca('${p}','Ingreso')">+ Ingreso de canecas</button>
     <button class="btn rojo sm" onclick="formCaneca('${p}','Uso')">− Usar canecas</button><button class="btn sec sm" onclick="formCaneca('${p}','Conteo')">🔢 Conteo físico</button>
     <button class="btn sec sm" onclick="formGalCaneca('${p}')">⚙ Galones por caneca</button></div></div>
@@ -512,12 +513,13 @@ function resumenGens(){
   return PIAZZAS.flatMap(p => state.generadores.filter(g=>g.piazza===p).sort((a,b)=>((a.bloque||'')+a.ubicacion).localeCompare((b.bloque||'')+b.ubicacion)));
 }
 function reservaDe(p){
-  if(esCD(p)){ const cs = state.centros.filter(c=>c.piazza===p); return {tipo:'cd', gal: cs.reduce((s,c)=>s+num(c.galones),0), cap: cs.reduce((s,c)=>s+capCentro(c),0)}; }
+  if(esCD(p)){ const cs = state.centros.filter(c=>c.piazza===p), cn = canecasDe(p), tq = cs.reduce((s,c)=>s+num(c.galones),0);
+    return {tipo:'cd', gal: tq + cn.gal, tq, can: cn.gal, n: cn.n, cap: cs.reduce((s,c)=>s+capCentro(c),0)}; }
   const c = canecasDe(p); return {tipo:'can', gal:c.gal, n:c.n};
 }
 function reservaHTML(p){
   const r = reservaDe(p);
-  return r.tipo==='cd' ? `<b style="color:#1e88e5">${fmt(r.gal)} gal</b><div style="font-size:10px;color:var(--sub)">Centro Dist. · cap. ${fmt(r.cap)}</div>`
+  return r.tipo==='cd' ? `<b style="color:#1e88e5">${fmt(r.gal)} gal</b><div style="font-size:10px;color:var(--sub)">Centro Dist. ${fmt(r.tq)} / ${fmt(r.cap)}${r.n?` + 🛢 ${r.n} caneca(s) del centro (${fmt(r.can)} gal)`:''}</div>`
     : `<b style="color:${r.n<=0?'var(--rojo)':'#6d4c41'}">${fmt(r.gal)} gal</b><div style="font-size:10px;color:var(--sub)">🛢 ${r.n} caneca(s)</div>`;
 }
 function renderResumen(){
@@ -546,7 +548,7 @@ function renderResumen(){
 }
 const filaRes = g => ({'Piazza':g.piazza,'Bloque':g.bloque||'-','Ubicación':g.ubicacion,'Capacidad máx. tanque (gal)':num(g.capacidad),
   'Nivel de combustible (%)':tieneNivel(g)?num(g.nivel):'Sin registro','Galones disponibles':tieneNivel(g)?Math.round(galRest(g)*100)/100:'',
-  'Reserva Piazza (gal)':g.piazza?Math.round(reservaDe(g.piazza).gal*100)/100:'','Tipo de reserva':g.piazza?(esCD(g.piazza)?'Centro de Distribución':`${reservaDe(g.piazza).n} caneca(s)`):''});
+  'Reserva Piazza (gal)':g.piazza?Math.round(reservaDe(g.piazza).gal*100)/100:'','Tipo de reserva':g.piazza?(esCD(g.piazza)?`Centro de Distribución${reservaDe(g.piazza).n?' + '+reservaDe(g.piazza).n+' caneca(s)':''}`:`${reservaDe(g.piazza).n} caneca(s)`):''});
 function excelResumen(){
   const rows = resumenGens().map(filaRes);
   rows.push({'Piazza':'TOTAL','Capacidad máx. tanque (gal)':rows.reduce((s,r)=>s+r['Capacidad máx. tanque (gal)'],0),'Galones disponibles':rows.reduce((s,r)=>s+(num(r['Galones disponibles'])),0),'Reserva Piazza (gal)':PIAZZAS.reduce((s,p)=>s+reservaDe(p).gal,0)});
@@ -618,8 +620,8 @@ function renderReporte(){
     <div><b style="font-size:20px;color:var(--azul2)">${fmt(k.galCD)}</b> <span class="res">de ${fmt(k.capCD)} gal en total</span></div></div>
     ${leyendaMat()}<div class="grid gridcd">${R.cs.map(c=>`<div class="centro">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
-      <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(capCentro(c))} gal disponibles</div></div></div>
-      <div class="tqs">${tqs(c).map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div></div>`).join('')}</div></div>`;
+      <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(capCentro(c))} gal disponibles</div>${canTot(c)}</div></div>
+      <div class="tqs">${tqs(c).map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div>${canFila(c)}</div>`).join('')}</div></div>`;
   h += `<div class="panel"><h3>⬆ Salidas de combustible del día</h3><div class="tw"><table><tr><th>N°</th><th>Hora</th><th>Sale de</th><th>Tanque</th><th>Destino</th><th>Generador</th><th class="n">Galones</th><th>Nivel generador</th><th>Traslada</th><th>Recibe</th></tr>
     ${R.sal.length?R.sal.map(d=>`<tr><td>${esc(d.numero)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.tanque||'')}</td><td>${esc(d.destino)}</td><td>${esc(d.generador||'')}</td><td class="n"><b>${fmt(d.galones)}</b></td><td>${esc(d.nivelGenerador||'')}</td><td>${esc(d.traslada||'')}</td><td>${esc(d.liderRecibe||'')}</td></tr>`).join('')+`<tr><td colspan="6"><b>TOTAL</b></td><td class="n"><b>${fmt(k.salidas)}</b></td><td colspan="3"></td></tr>`:'<tr><td colspan="10" style="text-align:center;color:var(--sub)">Sin salidas</td></tr>'}</table></div></div>`;
   h += `<div class="panel"><h3>⬇ Recargas de tanques del día</h3><div class="tw"><table><tr><th>Hora</th><th>Centro</th><th>Tanque</th><th class="n">Galones</th><th>Nivel tanque</th><th>Proveedor</th><th>Factura / Guía</th><th>Recibe</th></tr>
@@ -652,7 +654,7 @@ function filasReporte(R){
       {'Indicador':'Generado','Valor':new Date().toLocaleString('es-EC')}],
     gens:R.gens.map(g=>{ const r=g.regDia[g.regDia.length-1]; return {'Piazza':g.piazza,'Bloque':g.bloque||'-','Ubicación':g.ubicacion,'Capacidad (gal)':num(g.capacidad),
       'Nivel (%)':tieneNivel(g)?num(g.nivel):'Sin registro','Galones':tieneNivel(g)?Math.round(galRest(g)*100)/100:'',
-      'Reserva Piazza (gal)':Math.round(reservaDe(g.piazza).gal*100)/100,'Tipo de reserva':esCD(g.piazza)?'Centro de Distribución':`${reservaDe(g.piazza).n} caneca(s)`,'Horómetro':g.horometro?fmtHor(g.horometro):'','Encendido en el día':usoPorDia(g)[R.f]!==undefined?fmtHM(usoPorDia(g)[R.f]):'','Aceite':g.aceite||'','Batería':g.bateria||'','Refrigerante':g.refrigerante||'','Estado':g.estado||'','Responsable':r?.responsable||''}; }),
+      'Reserva Piazza (gal)':Math.round(reservaDe(g.piazza).gal*100)/100,'Tipo de reserva':esCD(g.piazza)?`Centro de Distribución${reservaDe(g.piazza).n?' + '+reservaDe(g.piazza).n+' caneca(s)':''}`:`${reservaDe(g.piazza).n} caneca(s)`,'Horómetro':g.horometro?fmtHor(g.horometro):'','Encendido en el día':usoPorDia(g)[R.f]!==undefined?fmtHM(usoPorDia(g)[R.f]):'','Aceite':g.aceite||'','Batería':g.bateria||'','Refrigerante':g.refrigerante||'','Estado':g.estado||'','Responsable':r?.responsable||''}; }),
     tanques:R.cs.flatMap(c=>tqs(c).map((t,i)=>({'Centro':c.nombre,'Tanque':i+1,'Material':t.material,'Capacidad (gal)':num(t.capacidad),'Galones':num(t.galones),
       'Nivel (%)':num(t.capacidad)?Math.round(num(t.galones)/num(t.capacidad)*100):0,'En uso':t.enUso===false?'No':'Sí'}))),
     salidas:R.sal.map(d=>({'N°':d.numero,'Hora':d.hora,'Sale de':d.origen,'Tanque':d.tanque||'','Destino':d.destino,'Generador':d.generador||'','Galones':num(d.galones),'Nivel generador':d.nivelGenerador||'','Traslada':d.traslada||'','Recibe':d.liderRecibe||''})),
@@ -674,7 +676,7 @@ function imprimirReporte(){
   w.document.write(`<html><head><title>Reporte diario ${fFecha(repFecha||hoy())}</title><style>${estilosApp()}
     @page{size:A4 landscape;margin:8mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     body{background:#fff;margin:0;zoom:.62} .rephead{display:flex!important} .repfir{display:flex!important}
-    .panel,.kpis,.ngrupo{break-inside:avoid} tr{break-inside:avoid} .tw{overflow:visible}
+    .kpis,.ngrupo,.centro{break-inside:avoid} tr{break-inside:avoid} thead{display:table-header-group} .tw{overflow:visible}
     .tres tr:hover td{background:inherit}</style></head><body><main class="full" style="padding:0">${cont.outerHTML}</main>
     <script>setTimeout(()=>print(),500)<\/script></body></html>`);
   w.document.close();
@@ -688,28 +690,33 @@ async function pdfReporte(){
   const PW = 297, PH = 210, M = 8, W = PW - 2*M;
   let y = M;
   const bloques = [...cont.children];
+  const anchoPrev = cont.style.width; cont.style.width = '1400px'; const anchoPdf = Math.max(1400, cont.scrollWidth + 20); cont.style.width = anchoPdf + 'px';
   try{
     for(const el of bloques){
-      const cv = await html2canvas(el, {scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth: Math.max(1400, cont.scrollWidth)});
-      const ratio = W / cv.width, hmm = cv.height * ratio;
-      if(hmm <= PH - 2*M){
-        if(y + hmm > PH - M){ doc.addPage(); y = M; }
-        doc.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', M, y, W, hmm); y += hmm + 4;
-      } else {
-        // bloque más alto que una página: se corta en porciones
-        const altoPag = Math.floor((PH - 2*M) / ratio); let sy = 0;
-        if(y > M){ doc.addPage(); y = M; }
-        while(sy < cv.height){
-          const h = Math.min(altoPag, cv.height - sy), c2 = document.createElement('canvas');
-          c2.width = cv.width; c2.height = h; c2.getContext('2d').drawImage(cv, 0, sy, cv.width, h, 0, 0, cv.width, h);
-          doc.addImage(c2.toDataURL('image/jpeg', 0.92), 'JPEG', M, M, W, h*ratio); sy += h;
-          if(sy < cv.height){ doc.addPage(); } else { y = M + h*ratio + 4; }
+      const cv = await html2canvas(el, {scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth:anchoPdf});
+      const ratio = W / cv.width, er = el.getBoundingClientRect(), k = cv.height / er.height;
+      // puntos donde se puede cortar sin partir una fila o un cuadro
+      const cortes = [...new Set([...el.querySelectorAll('tr, .centro, .kpi, .tq, h3')].map(x => Math.round((x.getBoundingClientRect().bottom - er.top) * k)))]
+        .filter(c => c > 0 && c < cv.height).sort((x,z)=>x-z);
+      let sy = 0;
+      while(sy < cv.height){
+        const disp = Math.floor((PH - M - y) / ratio);
+        if(cv.height - sy <= disp){
+          const h = cv.height - sy, c2 = document.createElement('canvas'); c2.width = cv.width; c2.height = h;
+          c2.getContext('2d').drawImage(cv, 0, sy, cv.width, h, 0, 0, cv.width, h);
+          doc.addImage(c2.toDataURL('image/jpeg', 0.92), 'JPEG', M, y, W, h*ratio); y += h*ratio + 3; break;
         }
+        let corte = cortes.filter(c => c > sy && c <= sy + disp).pop();
+        if(!corte){ if(y > M){ doc.addPage(); y = M; continue; } corte = sy + disp; }
+        const h = corte - sy, c2 = document.createElement('canvas'); c2.width = cv.width; c2.height = h;
+        c2.getContext('2d').drawImage(cv, 0, sy, cv.width, h, 0, 0, cv.width, h);
+        doc.addImage(c2.toDataURL('image/jpeg', 0.92), 'JPEG', M, y, W, h*ratio);
+        sy = corte; doc.addPage(); y = M;
       }
     }
     doc.save(`Reporte_Diario_Generadores_${repFecha||hoy()}.pdf`);
   }catch(e){ console.error(e); toast('Error al generar el PDF'); }
-  finally{ cont.classList.remove('modoPdf'); }
+  finally{ cont.classList.remove('modoPdf'); cont.style.width = anchoPrev; }
 }
 
 /* ===== Selector de nivel con cálculo automático de galones ===== */
@@ -1135,6 +1142,17 @@ function tanqueHTML(t, i, cid){
     <div class="tqcuerpo"><div class="tqlleno" style="height:${pct}%;background:${color(pct)}"></div><span>${Math.round(pct)}%</span></div>
     <div class="tqinfo"><b>Tanque ${i+1}</b><span style="font-size:15px;font-weight:800">${fmt(g)} <span style="font-weight:500;font-size:12px;color:var(--sub)">/ ${fmt(cap)} gal</span></span>${t.enUso===false?'<span class="sinuso">Sin uso</span>':''}</div></div>`;
 }
+function canTot(c){
+  if(!c.piazza) return ''; const cn = canecasDe(c.piazza); if(!cn.movs.length) return '';
+  return `<div style="font-size:12px;color:#6d4c41;font-weight:700">+ 🛢 ${cn.n} canecas (${fmt(cn.gal)} gal)</div>`;
+}
+function canFila(c){
+  if(!c.piazza) return '';
+  const cn = canecasDe(c.piazza); if(!cn.movs.length) return '';
+  return `<div class="tq" style="--mc:#6d4c41;--mbg:#efebe9;cursor:pointer;margin-top:8px" title="Clic para ver canecas" onclick="verCanecas('${esc(c.piazza)}')">
+    <div style="font-size:30px;line-height:1">🛢</div><div class="tqinfo"><b>Canecas del centro</b>
+    <span style="font-size:15px;font-weight:800;color:${cn.n<=0?'var(--rojo)':'#6d4c41'}">${cn.n} <span style="font-weight:500;font-size:12px;color:var(--sub)">× ${fmt(cn.r.galCaneca)} gal = ${fmt(cn.gal)} gal</span></span></div></div>`;
+}
 function verTanque(cid, tid){
   const c = state.centros.find(x=>x.id===cid); if(!c) return;
   const ts = tqs(c), i = ts.findIndex(x=>x.id===tid), t = ts[i]; if(!t) return;
@@ -1158,8 +1176,9 @@ function centroHTML(c){
   const t = tqs(c), cap = capCentro(c);
   return `<div class="centro">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
-    <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(cap)} gal disponibles</div></div></div>
+    <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(cap)} gal disponibles</div>${canTot(c)}</div></div>
     ${t.length?`<div class="tqs">${t.map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div>`:''}
+    ${canFila(c)}
     ${c.obs?`<div class="nota" style="margin-top:8px">${esc(c.obs)}</div>`:''}
     <div class="bt"><button class="btn rojo sm" onclick="formDespacho('${c.id}')">⬆ Registrar salida</button>
     <button class="btn verde sm" onclick="formIngreso('${c.id}')">⛽ Recargar tanque</button>
@@ -1534,12 +1553,19 @@ function aplicarSeedCentros(){
   SEED_CD.forEach(x => { if(!state.centros.some(c=>c.id===x.id || c.nombre===x.nombre)) put('centros', x); });
   try{ localStorage.setItem(SEED_CD_FLAG,'1'); }catch(e){}
 }
+const SEED_RES = [{id:'res-ceibos', piazza:'Ceibos', galCaneca:5, movs:[{id:'seed-can-ceibos', tipo:'Conteo', cantidad:18, fecha:'2026-10-20', hora:'08:00', generadorId:'', generador:'', responsable:'', obs:'Conteo inicial', t:1}]}];
+function aplicarSeedReservas(){
+  try{ if(localStorage.getItem('seed_reservas_v1')) return; }catch(e){}
+  SEED_RES.forEach(x => { if(!state.reservas.some(r=>r.id===x.id)) put('reservas', x); });
+  try{ localStorage.setItem('seed_reservas_v1','1'); }catch(e){}
+}
 function aplicarSeedLocal(){
   try{ if(localStorage.getItem(SEED_FLAG)) return; }catch(e){}
   SEED.forEach(x => { if(!state.generadores.some(g=>g.id===x.id)) put('generadores', {...x, creado:Date.now(), historial:[]}); });
   try{ localStorage.setItem(SEED_FLAG,'1'); }catch(e){}
 }
 async function aplicarSeedFirebase(){
+  for(const x of SEED_RES){ const d = await db.collection('reservas').doc(x.id).get(); if(!d.exists) await db.collection('reservas').doc(x.id).set(x); }
   const sc = await db.collection('centros').get();
   if(sc.empty) await Promise.all(SEED_CD.map(x => db.collection('centros').doc(x.id).set(x)));
   const snap = await db.collection('generadores').get();
@@ -1548,7 +1574,7 @@ async function aplicarSeedFirebase(){
 }
 
 /* ===== Inicio ===== */
-cargarLocal(); if(!FIREBASE_CONFIG.apiKey){ aplicarSeedLocal(); aplicarSeedCentros(); } render(); revisarAlarma(); initFirebase();
+cargarLocal(); if(!FIREBASE_CONFIG.apiKey){ aplicarSeedLocal(); aplicarSeedCentros(); aplicarSeedReservas(); } render(); revisarAlarma(); initFirebase();
 </script>
 </body>
 </html>
