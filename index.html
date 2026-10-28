@@ -394,6 +394,7 @@ function selHTML(id, campo, v){
   return `<select id="${id}"><option value="">— Seleccione —</option>${OPC[campo].map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`;
 }
 /* Historial normalizado (compatible con registros antiguos) y ordenado */
+const esCarga = r => /^(desp|can)-/.test(r.id||''); // abastecimientos automáticos, no cuentan como registro diario
 function hist(g){
   return (g.historial||[]).map(r => r.id ? {...r} : {id:'h'+r.t, fecha:dF(r.t), hora:dH(r.t), nivel:r.nivel, nota:r.nota, t:r.t})
     .sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora) || (a.t||0)-(b.t||0));
@@ -417,7 +418,7 @@ function renderPiazza(p){
     <button class="btn" onclick="formGen()">+ Agregar generador</button></div></div>`;
   if(!gens.length) h += `<div class="grid" style="margin-bottom:14px">${extrasHTML(p)}</div><div class="vacio">No hay generadores registrados en esta Piazza.<br><br><button class="btn" onclick="formGen()">+ Agregar generador</button></div>`;
   else h += '<div class="grid">' + gens.map(g => {
-    const sn = tieneNivel(g), n = num(g.nivel), bajo = sn && n<UMBRAL, regHoy = hist(g).some(r=>r.fecha===hoy()), au = autonomiaActual(g);
+    const sn = tieneNivel(g), n = num(g.nivel), bajo = sn && n<UMBRAL, regHoy = hist(g).some(r=>r.fecha===hoy() && !esCarga(r)), au = autonomiaActual(g);
     const pr = problemas(g), ud = usoPorDia(g), ayer = diasAtras(1);
     return `<div class="gen ${bajo?'bajo':''} ${pr.length?'problema':''}" onclick="verGen('${g.id}')">
       ${bajo?'<div class="tag">⚠ ABASTECER</div>':''}${pr.length?`<div class="tagp" title="${esc(pr.join(' | '))}">🔴 PROBLEMA</div>`:''}
@@ -443,7 +444,7 @@ const resId = p => 'res-'+p.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\W+
 const resDe = p => state.reservas.find(r=>r.id===resId(p)) || {id:resId(p), piazza:p, galCaneca:5, movs:[]};
 function canecasDe(p){
   const r = resDe(p), movs = (r.movs||[]).slice().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora) || (a.t||0)-(b.t||0));
-  let n = 0; movs.forEach(m => { const c = num(m.cantidad); n = m.tipo==='Conteo' ? c : (m.tipo==='Ingreso'||m.tipo==='Trasvase') ? n+c : n-c; m._saldo = n; });
+  let n = 0; movs.forEach(m => { const c = num(m.cantidad); n = Math.round((m.tipo==='Conteo' ? c : (m.tipo==='Ingreso'||m.tipo==='Trasvase') ? n+c : n-c)*100)/100; m._saldo = n; });
   return {r, n, gal: n*num(r.galCaneca), movs: movs.reverse()};
 }
 function canecasHTML(p){
@@ -457,10 +458,10 @@ function canecasHTML(p){
       <div class="ic">${n>0?'<span>🛢</span>'.repeat(Math.min(n,40))+(n>40?` +${n-40}`:''):'<span style="font-size:13px;color:var(--rojo);font-weight:700">⚠ Sin canecas de reserva</span>'}</div></div>
     <details style="margin-top:10px"${movs.length?'':' open'}><summary style="cursor:pointer;font-weight:700;font-size:13px">Historial de canecas (${movs.length})</summary>
     <div class="tw" style="max-height:260px;overflow-y:auto;margin-top:6px"><table><tr><th>Fecha</th><th>Hora</th><th>Movimiento</th><th class="n">Canecas</th><th class="n">Saldo</th><th>Generador</th><th>Responsable</th><th>Observación</th><th></th></tr>
-    ${movs.length?movs.map(m=>`<tr><td>${fFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${m.tipo==='Ingreso'?'⬇ Ingreso':m.tipo==='Uso'?'⬆ Uso':m.tipo==='Trasvase'?`⛽ Desde ${esc(m.tanque||'tanque')} (−${fmt(m.galones)} gal)`:'🔢 Conteo'}</td>
+    ${movs.length?movs.map(m=>`<tr><td>${fFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${m.despachoId?`⬇ ${esc(m.obs)} (+${fmt(m.galones)} gal)`:m.tipo==='Ingreso'?'⬇ Ingreso':m.tipo==='Uso'?'⬆ Uso':m.tipo==='Trasvase'?`⛽ Desde ${esc(m.tanque||'tanque')} (−${fmt(m.galones)} gal)`:'🔢 Conteo'}</td>
       <td class="n"><b style="color:${m.tipo==='Ingreso'||m.tipo==='Trasvase'?'var(--verde)':m.tipo==='Uso'?'var(--rojo)':'inherit'}">${m.tipo==='Ingreso'||m.tipo==='Trasvase'?'+':m.tipo==='Uso'?'−':'='}${num(m.cantidad)}</b></td><td class="n">${m._saldo}</td>
-      <td>${esc(m.generador||'')}</td><td>${esc(m.responsable||'')}</td><td>${esc(m.obs||'')}</td>
-      <td><button class="btn sec sm" onclick="formCaneca('${p}','${m.tipo}','${m.id}')">✏</button> <button class="btn sec sm" onclick="borrarCaneca('${p}','${m.id}')">🗑</button></td></tr>`).join('')
+      <td>${esc(m.generador||'')}${m.nivelGenerador?`<br><small style="color:var(--verde)">${esc(m.nivelGenerador)}</small>`:''}</td><td>${esc(m.responsable||'')}</td><td>${esc(m.obs||'')}</td>
+      <td>${m.despachoId?'<span style="font-size:11px;color:var(--sub)" title="Se modifica desde la salida del Centro de Distribución">desde salida</span>':`<button class="btn sec sm" onclick="formCaneca('${p}','${m.tipo}','${m.id}')">✏</button> <button class="btn sec sm" onclick="borrarCaneca('${p}','${m.id}')">🗑</button>`}</td></tr>`).join('')
       :'<tr><td colspan="9" style="text-align:center;color:var(--sub)">Sin movimientos. Use <b>🔢 Conteo físico</b> para registrar cuántas canecas hay ahora.</td></tr>'}</table></div></details></div>`;
 }
 function formCaneca(p, tipo, mid){
@@ -503,13 +504,28 @@ function guardarCaneca(p, tipo, mid){
     Object.assign(m, {centroId:cid, tanqueId:tid, tanque:`Tanque ${i+1}`, galones:gal});
   }
   const i = r.movs.findIndex(x=>x.id===m.id); if(i>=0) r.movs[i]=m; else r.movs.push(m);
-  put('reservas', r); render(); verCanecas(p); toast('Canecas actualizadas');
+  quitarCargaCaneca(m.id);
+  let msg = 'Canecas actualizadas';
+  if(tipo==='Uso' && g){
+    const g1 = JSON.parse(JSON.stringify(state.generadores.find(x=>x.id===gid))), galU = m.cantidad*num(r.galCaneca);
+    if(tieneNivel(g1)){
+      const n = nivelTrasCarga(g1, galU, num(g1.nivel)), h = hist(g1);
+      h.push({id:'can-'+m.id, fecha:m.fecha, hora:m.hora, nivel:n, horometro:'', responsable:m.responsable, nota:`Abastecido ${fmt(galU)} gal con ${m.cantidad} caneca(s) de reserva`, t:Date.now()});
+      g1.historial = h; recalc(g1); put('generadores', g1); m.nivelGenerador = `${num(state.generadores.find(x=>x.id===gid).nivel)}% → ${n}%`; msg += ' · generador '+m.nivelGenerador;
+    } else msg += ' · el generador no tiene nivel registrado, actualícelo con un registro diario';
+  }
+  put('reservas', r); render(); revisarAlarma(); verCanecas(p); toast(msg);
 }
 function borrarCaneca(p, mid){
   if(!confirm('¿Borrar este movimiento de canecas? Si fue un llenado desde tanque, los galones vuelven al tanque.')) return;
   const r = JSON.parse(JSON.stringify(resDe(p))), old = (r.movs||[]).find(x=>x.id===mid);
   if(old && old.tipo==='Trasvase' && old.centroId){ const co = state.centros.find(x=>x.id===old.centroId); if(co) put('centros', ajustarTanque(co, old.tanqueId, num(old.galones))); }
-  r.movs = (r.movs||[]).filter(x=>x.id!==mid); put('reservas', r); render(); verCanecas(p);
+  r.movs = (r.movs||[]).filter(x=>x.id!==mid); quitarCargaCaneca(mid); put('reservas', r); render(); revisarAlarma(); verCanecas(p);
+}
+/* Quita del generador el abastecimiento hecho con canecas (al modificar o borrar el movimiento) */
+function quitarCargaCaneca(mid){
+  const id = 'can-'+mid, g0 = state.generadores.find(g=>hist(g).some(x=>x.id===id)); if(!g0) return;
+  const g = JSON.parse(JSON.stringify(g0)); g.historial = hist(g).filter(x=>x.id!==id); if(!g.historial.length) delete g.nivel; else recalc(g); put('generadores', g);
 }
 function formGalCaneca(p){
   const r = resDe(p);
@@ -618,7 +634,7 @@ function genAl(g, f){
   const h = hist(g).filter(r=>r.fecha<=f);
   const x = {...g, historial:h}; delete x.nivel; ['horometro','aceite','bateria','refrigerante','estado','ultimoRegistro'].forEach(k=>delete x[k]);
   if(h.length) recalc(x);
-  x.regDia = h.filter(r=>r.fecha===f);
+  x.regDia = h.filter(r=>r.fecha===f && !esCarga(r));
   return x;
 }
 const MALOS = ['Bajo','Baja','Requiere cambio','Fuga','Con novedad','En mantenimiento','Fuera de servicio'];
@@ -1370,6 +1386,9 @@ function genSinDespacho(g){
 }
 const genActual = () => $('dGen') ? genSinDespacho(state.generadores.find(x=>x.id===$('dGen').value)) : null;
 function genDestino(sel){
+  const dst = $('dDest').value;
+  $('dGenBox').innerHTML = PIAZZAS.includes(dst) ? `<div class="nota" style="background:#efebe9;color:#4e342e">🛢 Los galones de esta salida se sumarán a la <b>reserva de ${esc(dst)}</b>. Para llenar un generador, use <b>Usar canecas</b> en la reserva de la Piazza.</div>` : '';
+  return;
   const dest = $('dDest').value, gens = state.generadores.filter(g=>g.piazza===dest).sort((a,b)=>((a.bloque||'')+a.ubicacion).localeCompare((b.bloque||'')+b.ubicacion));
   if(!gens.length){ $('dGenBox').innerHTML = dest && dest!=='__o' ? '<div class="nota">Esta Piazza no tiene generadores registrados.</div>' : ''; return; }
   const d = window._despEdit;
@@ -1411,6 +1430,7 @@ function quitarAbastecimiento(d){
   const g0 = d && d.generadorId && state.generadores.find(x=>x.id===d.generadorId);
   const ids = ['desp-'+d.id, 'desp-'+d.id+'-ini'];
   if(g0 && hist(g0).some(r=>ids.includes(r.id))){ const g = {...g0, historial: hist(g0).filter(r=>!ids.includes(r.id))}; if(!g.historial.length) delete g.nivel; else recalc(g); put('generadores', g); }
+  state.reservas.filter(r=>(r.movs||[]).some(m=>m.id==='desp-'+d.id)).forEach(r0 => { const r = JSON.parse(JSON.stringify(r0)); r.movs = r.movs.filter(m=>m.id!=='desp-'+d.id); put('reservas', r); });
 }
 function guardarDespacho(cid, imprimir, did){
   const old = did ? state.despachos.find(x=>x.id===did) : null;
@@ -1424,7 +1444,7 @@ function guardarDespacho(cid, imprimir, did){
   const rep = repartir(c0, tid, gal);
   if(!rep){ $('fErr').textContent=`No hay suficiente combustible en el centro. Disponible en total: ${fmt(c0.galones)} gal.`; return; }
   const gen = genActual(), act = gen && $('dAct').checked, base = gen ? nivelBase(gen) : null;
-  if($('dGen') && !gen && !confirm('No seleccionó un generador. ¿Guardar la salida sin generador de destino?')) return;
+  if($('dGen') && !gen && !confirm(PIAZZAS.includes(dest) ? `No seleccionó un generador. Los ${fmt(gal)} gal se sumarán a la RESERVA de ${dest} (${fmt(gal/num(resDe(dest).galCaneca))} caneca(s) de ${fmt(resDe(dest).galCaneca)} gal). ¿Continuar?` : 'No seleccionó un generador. ¿Guardar la salida sin generador de destino?')) return;
   if(act && base===null){ $('fErr').textContent='Ingrese el nivel que tenía el generador antes de recargar, o desmarque "Actualizar automáticamente".'; return; }
   if(act){ const falt = num(gen.capacidad)*(100-base)/100; if(gal > falt && !confirm(`Los ${fmt(gal)} gal superan lo que le falta al generador (${fmt(falt)} gal). ¿Guardar igual? El nivel quedará en 100%.`)) return; }
   // revertir efectos de la salida anterior
@@ -1444,9 +1464,15 @@ function guardarDespacho(cid, imprimir, did){
     g.historial = h; g.actualizado = Date.now(); recalc(g); put('generadores', g);
     d.nivelGenerador = `${base}% → ${n}%`; d.nivelAntes = base;
   }
+  if(!gen && PIAZZAS.includes(dest)){
+    const r = JSON.parse(JSON.stringify(resDe(dest))); r.movs = r.movs||[];
+    r.movs.push({id:'desp-'+d.id, tipo:'Ingreso', cantidad: Math.round(gal/num(r.galCaneca)*100)/100, galones:gal, fecha:d.fecha, hora:d.hora, generadorId:'', generador:'',
+      responsable:d.liderRecibe||d.traslada, obs:`Salida ${d.numero} desde ${d.origen}`, despachoId:d.id, t:Date.now()});
+    put('reservas', r); d.reserva = true;
+  }
   put('despachos', d); put('centros', c);
   cerrar(); render(); revisarAlarma();
-  toast(`Salida ${d.numero} ${old?'modificada':'registrada'}${d.nivelGenerador?' · generador '+d.nivelGenerador:''}`);
+  toast(`Salida ${d.numero} ${old?'modificada':'registrada'}${d.nivelGenerador?' · generador '+d.nivelGenerador:''}${d.reserva?' · sumado a la reserva de '+d.destino:''}`);
   if(imprimir) imprimirDespacho(d.id);
 }
 function eliminarDespacho(id){
