@@ -33,6 +33,8 @@ header .acc{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 @keyframes alarmaP{0%,100%{box-shadow:0 0 0 0 #e5393580}50%{box-shadow:0 0 0 6px #e5393500}}
 .btnAlarma{display:inline-block;margin-left:6px;vertical-align:middle;background:#e53935;color:#fff;border:0;border-radius:6px;padding:2px 6px;font-size:10px;font-weight:700;cursor:pointer;animation:alarmaP 1.4s infinite;white-space:nowrap}
 .btnAlarma:hover{background:#b71c1c}
+.pzGrp>tr>td:first-child{border-left:1.5px solid #1f4e79!important}.tres:has(.pzGrp) tr:first-child>th:first-child{border-left:1.5px solid #1f4e79}.tres:has(.pzGrp) tr:first-child>th:last-child{border-right:1.5px solid #1f4e79}.tres:has(.pzGrp){border-collapse:collapse;border-spacing:0}.pzGrp>tr>td:last-child{border-right:1.5px solid #1f4e79!important}
+.pzGrp>tr.gIni>td{border-top:1.5px solid #1f4e79!important}.pzGrp>tr.gFin>td,.pzGrp td.gRes{border-bottom:1.5px solid #1f4e79!important}
 @keyframes campana{0%,60%,100%{transform:rotate(0)}10%,30%{transform:rotate(-18deg)}20%,40%{transform:rotate(18deg)}}
 .campAl{display:inline-block;cursor:pointer;animation:campana 1.6s infinite;transform-origin:50% 10%}
 .rsv{line-height:1.15;white-space:nowrap}.rsv b{font-size:12px}.rsv small{display:block;font-size:10px;color:var(--sub)}
@@ -758,10 +760,10 @@ function renderReporte(){
     ${R.gens.map((g,gi)=>{ const sn=tieneNivel(g), n=num(g.nivel), au=autonomiaActual(g), r=g.regDia[g.regDia.length-1];
       const prim = gi===0 || R.gens[gi-1].piazza!==g.piazza; let span=0; if(prim){ for(let j=gi;j<R.gens.length&&R.gens[j].piazza===g.piazza;j++) span++; }
       const alr = !r ? `<button class="btnAlarma" title="No se ha llenado el registro diario de este generador" onclick="event.stopPropagation();formReg('${g.id}')">🔔 Sin registro</button>` : '';
-      return `<tr onclick="verGen('${g.id}')" style="cursor:pointer" class="${!r?'sinReg':''}"><td><b>${esc(g.piazza)}</b></td><td>${esc(g.bloque||'-')}${!r?` <span class="campAl" title="Sin registro diario · clic para registrar" onclick="event.stopPropagation();formReg('${g.id}')">🔔</span>`:''}</td><td style="white-space:normal;min-width:160px;max-width:240px">${esc(g.ubicacion)}</td><td class="n">${fmt(g.capacidad)}</td>
+      return `${prim?'</tbody><tbody class="pzGrp">':''}<tr onclick="verGen('${g.id}')" style="cursor:pointer" class="${!r?'sinReg':''}${prim?' gIni':''}${gi===R.gens.length-1||R.gens[gi+1].piazza!==g.piazza?' gFin':''}"><td><b>${esc(g.piazza)}</b></td><td>${esc(g.bloque||'-')}${!r?` <span class="campAl" title="Sin registro diario · clic para registrar" onclick="event.stopPropagation();formReg('${g.id}')">🔔</span>`:''}</td><td style="white-space:normal;min-width:160px;max-width:240px">${esc(g.ubicacion)}</td><td class="n">${fmt(g.capacidad)}</td>
       <td>${sn?`<div class="gauge" style="height:18px"><div class="f" style="width:${n}%;background:${color(n)}"></div><span>${n}% · ${fmt(galRest(g))} gal</span></div>`:'<span style="color:var(--sub)">Sin registro</span>'}</td>
-      ${prim?`<td rowspan="${span}" style="text-align:center;background:#fff">${reservaHTML(g.piazza)}</td>`:''}<td>${fmtHor(g.horometro)}</td><td>${usoPorDia(g)[f]!==undefined?minChip(usoPorDia(g)[f]):'—'}</td><td>${chip('aceite',g.aceite)}</td><td>${chip('bateria',g.bateria)}</td><td>${chip('refrigerante',g.refrigerante)}</td><td>${chip('estado',g.estado)}</td>
-      <td>${esc(r?.responsable||'')}</td><td style="white-space:normal;min-width:140px;max-width:260px;font-size:11px">${esc(obsDia(g))}</td></tr>`; }).join('')}
+      ${prim?`<td rowspan="${span}" class="gRes" style="text-align:center;background:#fff">${reservaHTML(g.piazza)}</td>`:''}<td>${fmtHor(g.horometro)}</td><td>${usoPorDia(g)[f]!==undefined?minChip(usoPorDia(g)[f]):'—'}</td><td>${chip('aceite',g.aceite)}</td><td>${chip('bateria',g.bateria)}</td><td>${chip('refrigerante',g.refrigerante)}</td><td>${chip('estado',g.estado)}</td>
+      <td>${esc(r?.responsable||'')}</td><td style="white-space:normal;min-width:140px;max-width:260px;font-size:11px">${esc(obsDia(g))}</td></tr>`; }).join('')}</tbody>
     </table></div></div>`;
   h += `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 Combustible almacenado en Centros de Distribución <span style="font-weight:400;font-size:12px;color:var(--sub)">(saldo actual)</span></h3>
     <div><b style="font-size:20px;color:var(--azul2)">${fmt(k.galCD)}</b> <span class="res">de ${fmt(k.capCD)} gal en total</span></div></div>
