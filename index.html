@@ -394,6 +394,7 @@ function selHTML(id, campo, v){
   return `<select id="${id}"><option value="">— Seleccione —</option>${OPC[campo].map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`;
 }
 /* Historial normalizado (compatible con registros antiguos) y ordenado */
+const obsDia = g => [...new Set((g.regDia||[]).map(r=>String(r.nota||'').trim()).filter(Boolean))].join(' · ');
 const esCarga = r => /^(desp|can)-/.test(r.id||''); // abastecimientos automáticos, no cuentan como registro diario
 function hist(g){
   return (g.historial||[]).map(r => r.id ? {...r} : {id:'h'+r.t, fecha:dF(r.t), hora:dH(r.t), nivel:r.nivel, nota:r.nota, t:r.t})
@@ -674,14 +675,14 @@ function renderReporte(){
     ${kpi('Despachado en el día', fmt(k.salidas)+' gal', `${R.sal.length} salida(s)`, '#c62828')}
     ${kpi('Recargado en el día', fmt(k.recargas)+' gal', `${R.rec.length} recarga(s)`, '#2e7d32')}
   </div>`;
-  h += `<div class="panel"><h3>🔌 Estado de generadores al ${fFecha(f)}</h3><div class="tw"><table class="tres"><tr><th>Piazza</th><th>Bloque</th><th>Ubicación</th><th>Cap. (gal)</th><th style="min-width:150px">Nivel</th><th style="width:1%">Reserva</th><th>Horómetro</th><th>Encendido en el día</th><th style="width:1%">Aceite</th><th style="width:1%">Batería</th><th style="width:1%">Refrigerante</th><th style="width:1%">Estado</th><th>Responsable</th></tr>
+  h += `<div class="panel"><h3>🔌 Estado de generadores al ${fFecha(f)}</h3><div class="tw"><table class="tres"><tr><th>Piazza</th><th>Bloque</th><th>Ubicación</th><th>Cap. (gal)</th><th style="min-width:150px">Nivel</th><th style="width:1%">Reserva</th><th>Horómetro</th><th>Encendido en el día</th><th style="width:1%">Aceite</th><th style="width:1%">Batería</th><th style="width:1%">Refrigerante</th><th style="width:1%">Estado</th><th>Responsable</th><th>Observación</th></tr>
     ${R.gens.map((g,gi)=>{ const sn=tieneNivel(g), n=num(g.nivel), au=autonomiaActual(g), r=g.regDia[g.regDia.length-1];
       const prim = gi===0 || R.gens[gi-1].piazza!==g.piazza; let span=0; if(prim){ for(let j=gi;j<R.gens.length&&R.gens[j].piazza===g.piazza;j++) span++; }
       const alr = !r ? `<button class="btnAlarma" title="No se ha llenado el registro diario de este generador" onclick="event.stopPropagation();formReg('${g.id}')">🔔 Sin registro</button>` : '';
       return `<tr onclick="verGen('${g.id}')" style="cursor:pointer" class="${!r?'sinReg':''}"><td><b>${esc(g.piazza)}</b></td><td>${esc(g.bloque||'-')}${!r?` <span class="campAl" title="Sin registro diario · clic para registrar" onclick="event.stopPropagation();formReg('${g.id}')">🔔</span>`:''}</td><td style="white-space:normal;min-width:160px;max-width:240px">${esc(g.ubicacion)}</td><td class="n">${fmt(g.capacidad)}</td>
       <td>${sn?`<div class="gauge" style="height:18px"><div class="f" style="width:${n}%;background:${color(n)}"></div><span>${n}% · ${fmt(galRest(g))} gal</span></div>`:'<span style="color:var(--sub)">Sin registro</span>'}</td>
       ${prim?`<td rowspan="${span}" style="text-align:center;background:#fff">${reservaHTML(g.piazza)}</td>`:''}<td>${fmtHor(g.horometro)}</td><td>${usoPorDia(g)[f]!==undefined?minChip(usoPorDia(g)[f]):'—'}</td><td>${chip('aceite',g.aceite)}</td><td>${chip('bateria',g.bateria)}</td><td>${chip('refrigerante',g.refrigerante)}</td><td>${chip('estado',g.estado)}</td>
-      <td>${esc(r?.responsable||'')}</td></tr>`; }).join('')}
+      <td>${esc(r?.responsable||'')}</td><td style="white-space:normal;min-width:140px;max-width:260px;font-size:11px">${esc(obsDia(g))}</td></tr>`; }).join('')}
     </table></div></div>`;
   h += `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 Combustible almacenado en Centros de Distribución <span style="font-weight:400;font-size:12px;color:var(--sub)">(saldo actual)</span></h3>
     <div><b style="font-size:20px;color:var(--azul2)">${fmt(k.galCD)}</b> <span class="res">de ${fmt(k.capCD)} gal en total</span></div></div>
@@ -693,7 +694,7 @@ function renderReporte(){
     ${R.sal.length?R.sal.map(d=>`<tr><td>${esc(d.numero)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.tanque||'')}</td><td>${esc(d.destino)}</td><td>${esc(d.generador||'')}</td><td class="n"><b>${fmt(d.galones)}</b></td><td>${esc(d.nivelGenerador||'')}</td><td>${esc(d.traslada||'')}</td><td>${esc(d.liderRecibe||'')}</td></tr>`).join('')+`<tr><td colspan="6"><b>TOTAL</b></td><td class="n"><b>${fmt(k.salidas)}</b></td><td colspan="3"></td></tr>`:'<tr><td colspan="10" style="text-align:center;color:var(--sub)">Sin salidas</td></tr>'}</table></div></div>`;
   h += `<div class="panel"><h3>⬇ Recargas de tanques del día</h3><div class="tw"><table><tr><th>Hora</th><th>Centro</th><th>Tanque</th><th class="n">Galones</th><th>Nivel tanque</th><th>Proveedor</th><th>Factura / Guía</th><th>Recibe</th></tr>
     ${R.rec.length?R.rec.map(i=>`<tr><td>${esc(i.hora)}</td><td>${esc(i.centro)}</td><td>${esc(i.tanque||'')}</td><td class="n"><b>${fmt(i.galones)}</b></td><td>${i.antes!==undefined?`${fmt(i.antes)} → ${fmt(i.despues)}`:''}</td><td>${esc(i.proveedor||'')}</td><td>${esc(i.factura||'')}</td><td>${esc(i.recibe||'')}</td></tr>`).join('')+`<tr><td colspan="3"><b>TOTAL</b></td><td class="n"><b>${fmt(k.recargas)}</b></td><td colspan="4"></td></tr>`:'<tr><td colspan="8" style="text-align:center;color:var(--sub)">Sin recargas</td></tr>'}</table></div></div>`;
-  h += `<div class="fir repfir"><div><b>Elaborado por</b></div><div><b>Revisado por</b></div></div></div>`;
+  h += `<div class="fir repfir"><div>Ricardo Bohórquez<br><b>Elaborado por</b></div><div><b>Revisado por</b></div></div></div>`;
   $('main').innerHTML = h;
 }
 /* Novedades con gráfico de barras */
@@ -721,7 +722,7 @@ function filasReporte(R){
       {'Indicador':'Generado','Valor':new Date().toLocaleString('es-EC')}],
     gens:R.gens.map(g=>{ const r=g.regDia[g.regDia.length-1]; return {'Piazza':g.piazza,'Bloque':g.bloque||'-','Ubicación':g.ubicacion,'Capacidad (gal)':num(g.capacidad),
       'Nivel (%)':tieneNivel(g)?num(g.nivel):'Sin registro','Galones':tieneNivel(g)?Math.round(galRest(g)*100)/100:'',
-      'Reserva Piazza (gal)':Math.round(reservaDe(g.piazza).gal*100)/100,'Tipo de reserva':esCD(g.piazza)?`Centro de Distribución${reservaDe(g.piazza).n?' + '+reservaDe(g.piazza).n+' caneca(s)':''}`:`${reservaDe(g.piazza).n} caneca(s)`,'Horómetro':g.horometro?fmtHor(g.horometro):'','Encendido en el día':usoPorDia(g)[R.f]!==undefined?fmtHM(usoPorDia(g)[R.f]):'','Aceite':g.aceite||'','Batería':g.bateria||'','Refrigerante':g.refrigerante||'','Estado':g.estado||'','Responsable':r?.responsable||''}; }),
+      'Reserva Piazza (gal)':Math.round(reservaDe(g.piazza).gal*100)/100,'Tipo de reserva':esCD(g.piazza)?`Centro de Distribución${reservaDe(g.piazza).n?' + '+reservaDe(g.piazza).n+' caneca(s)':''}`:`${reservaDe(g.piazza).n} caneca(s)`,'Horómetro':g.horometro?fmtHor(g.horometro):'','Encendido en el día':usoPorDia(g)[R.f]!==undefined?fmtHM(usoPorDia(g)[R.f]):'','Aceite':g.aceite||'','Batería':g.bateria||'','Refrigerante':g.refrigerante||'','Estado':g.estado||'','Responsable':r?.responsable||'','Observación':obsDia(g)}; }),
     tanques:R.cs.flatMap(c=>tqs(c).map((t,i)=>({'Centro':c.nombre,'Tanque':i+1,'Material':t.material,'Capacidad (gal)':num(t.capacidad),'Galones':num(t.galones),
       'Nivel (%)':num(t.capacidad)?Math.round(num(t.galones)/num(t.capacidad)*100):0,'En uso':t.enUso===false?'No':'Sí'}))),
     salidas:R.sal.map(d=>({'N°':d.numero,'Hora':d.hora,'Sale de':d.origen,'Tanque':d.tanque||'','Destino':d.destino,'Generador':d.generador||'','Galones':num(d.galones),'Nivel generador':d.nivelGenerador||'','Traslada':d.traslada||'','Recibe':d.liderRecibe||''})),
