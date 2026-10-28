@@ -512,7 +512,8 @@ function renderPiazza(p){
       <div class="gal"><span>⏱ Horómetro: <b>${fmtHor(g.horometro)}</b></span><span>${chip('estado',g.estado)}</span></div>
       <div class="gal"><span>🔋 Hoy: ${minChip(ud[hoy()]??0)}</span><span>Ayer: ${minChip(ud[ayer]??0)}</span></div>
       ${pr.length?`<div class="mpend" style="background:#ffe5e5;color:#b00020">🔴 ${esc(pr[0])}${pr.length>1?` (+${pr.length-1})`:''}</div>`:''}
-      ${regHoy?'<div class="okreg">✔ Registro de hoy realizado</div>':'<div class="sinreg">⏳ Pendiente registro de hoy</div>'}</div>
+      ${regHoy?'<div class="okreg">✔ Registro de hoy realizado</div>':'<div class="sinreg">⏳ Pendiente registro de hoy</div>'}
+      <button class="btn sm" style="width:100%;margin-top:6px;background:#e65100" onclick="event.stopPropagation();formAbastecer('${g.id}')">⛽ Abastecer generador</button></div>
     </div>`;
   }).join('') + extrasHTML(p) + '</div>';
   $('main').innerHTML = h;
@@ -1002,7 +1003,7 @@ function verGen(id){
   <div style="margin-top:8px"><b style="font-size:11px;color:var(--sub)">FOTO FICHA TÉCNICA</b>${g.foto?`<div class="fotoprev"><img src="${g.foto}" onclick="verImg(this.src)"></div>`:'<div style="color:var(--sub);font-size:13px">Sin foto cargada</div>'}</div>
   </details>
   <div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">📅 Registro diario / Historial (${h.length})</h3>
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" style="background:#e65100" onclick="formAbastecer('${g.id}')">⛽ Abastecer</button><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
     ${h.length?`<button class="btn sec sm" onclick="excelHist('${g.id}')">📊 Excel</button><button class="btn sec sm" onclick="pdfHist('${g.id}')">📄 PDF</button>`:''}</div></div>
     <div class="tw" style="max-height:360px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th class="n">Nivel</th><th class="n">Galones</th><th class="n">Horómetro</th><th class="n">Encendido</th><th>Aceite</th><th>Batería</th><th>Refrigerante</th><th>Estado</th><th>Responsable</th><th>Observación</th><th></th></tr>
     ${h.length ? h.map(r=>`<tr class="${['aceite','bateria','refrigerante','estado'].some(k=>MALOS.includes(r[k]))?'mal':''}"><td>${fFecha(r.fecha)}</td><td>${esc(r.hora)}</td><td class="n" style="color:${color(r.nivel)};font-weight:700">${num(r.nivel)}%</td>
@@ -1502,6 +1503,72 @@ function prevGen(){
   if(!$('dAct').checked || gal<=0){ box.innerHTML = capTxt + `Nivel actual: <b style="color:${color(base)}">${base}%</b> · le faltan ${fmt(falt)} gal para llenarse`; return; }
   const n = nivelTrasCarga(g, gal, base);
   box.innerHTML = capTxt + `Generador: <b style="color:${color(base)}">${base}%</b> → <b style="color:${color(n)}">${n}%</b> (${fmt(Math.min(cap, cap*base/100+gal))} de ${fmt(cap)} gal)${gal>falt?` · <b style="color:var(--rojo)">sobran ${fmt(gal-falt)} gal, el tanque solo recibe ${fmt(falt)}</b>`:''}`;
+}
+/* ===== Abastecer un generador desde la reserva de la Piazza o desde un tanque del Centro ===== */
+function fuentesAbast(p){
+  const L = [], r = canecasDe(p);
+  L.push({v:'res', txt:`🛢 Reserva / canecas de ${p} — ${fmt(r.gal)} gal`, disp:r.gal});
+  state.centros.filter(c=>pzC(c)===p).forEach(c => tqs(c).forEach((t,i) => L.push({v:`tq|${c.id}|${t.id}`, txt:`🏭 ${c.nombre} · Tanque ${i+1} — ${fmt(t.galones)} gal`, disp:num(t.galones)})));
+  return L;
+}
+function formAbastecer(gid){
+  const g = state.generadores.find(x=>x.id===gid); if(!g) return;
+  const F = fuentesAbast(g.piazza);
+  abrir(`<h3>⛽ Abastecer generador</h3><div class="res" style="margin-bottom:8px">${esc(genNombre(g))} · ${esc(g.piazza)} · tanque ${fmt(g.capacidad)} gal</div>
+    <div class="fm">
+      <label class="full">¿De dónde sale el combustible? *<select id="abF" onchange="prevAbast('${gid}')">${F.map(f=>`<option value="${f.v}">${esc(f.txt)}</option>`).join('')}</select></label>
+      <label>Galones que se ponen *<input id="abG" type="number" min="0.1" step="0.1" placeholder="Ej.: 30" oninput="prevAbast('${gid}')"></label>
+      <label>Nivel en que queda el generador (%) *${tieneNivel(g)?` <span style="font-weight:400;color:var(--sub)">(actual ${num(g.nivel)}%)</span>`:''}
+        <input id="abNF" type="range" min="0" max="100" step="1" value="${tieneNivel(g)?num(g.nivel):0}" data-man="1" oninput="$('abNFv').value=this.value;prevAbast('${gid}')">
+        <input id="abNFv" type="number" min="0" max="100" step="1" value="${tieneNivel(g)?num(g.nivel):''}" style="width:90px;margin-top:4px" oninput="$('abNF').value=this.value;prevAbast('${gid}')"></label>
+      ${tieneNivel(g)?'':`<label>Nivel antes de cargar (%)<input id="abN" type="number" min="0" max="100" oninput="prevAbast('${gid}')"></label>`}
+      <label>Fecha<input id="abFe" type="date" value="${hoy()}"></label><label>Hora<input id="abH" type="time" value="${ahora()}"></label>
+      <label class="full">Observación<input id="abO"></label>
+      <div class="full" id="abPrev" style="font-size:13px"></div>
+    </div><div class="err" id="fErr"></div>
+    <div class="nota">No cuenta como registro diario: solo sube el nivel del generador y descuenta de donde salió el combustible.</div>
+    <div class="acciones"><button class="btn sec" onclick="cerrar()">Cancelar</button><button class="btn" style="background:#e65100" onclick="guardarAbast('${gid}')">⛽ Abastecer</button></div>`);
+  prevAbast(gid);
+}
+function datosAbast(gid){
+  const g = state.generadores.find(x=>x.id===gid), f = fuentesAbast(g.piazza).find(x=>x.v===$('abF').value), gal = num($('abG').value);
+  const base = tieneNivel(g) ? num(g.nivel) : ($('abN')?.value==='' ? null : Math.max(0,Math.min(100,num($('abN').value))));
+  const sug = base===null ? null : nivelTrasCarga(g, gal, base), nf = $('abNF'), man = nf && nf.dataset.man && nf.value!=='';
+  return {g, f, gal, base, sug, n: man ? Math.max(0, Math.min(100, Math.round(num(nf.value)))) : sug, falta: base===null ? null : num(g.capacidad)*(100-base)/100};
+}
+function prevAbast(gid){
+  const {f, gal, base, n, sug, falta} = datosAbast(gid), nf = $('abNF');
+  if(!gal){ $('abPrev').innerHTML = base!==null ? `Le faltan <b>${fmt(falta)} gal</b> para llenarse (está en ${base}%).` : ''; return; }
+  $('abPrev').innerHTML = (base!==null||n!==null ? `Generador: ${base!==null?base+'% → ':''}<b style="color:${color(n??0)}">${n??'—'}%</b>${sug!==null&&n!==sug?` <span style="color:var(--sub)">(según los galones serían ${sug}%)</span>`:''}${base!==null&&gal>falta?` <span style="color:var(--rojo)">(solo le faltaban ${fmt(falta)} gal)</span>`:''}<br>` : '')
+    + `Origen: ${fmt(f.disp)} → <b style="color:${gal>f.disp?'var(--rojo)':'inherit'}">${fmt(f.disp-gal)} gal</b>${gal>f.disp?' · <b style="color:var(--rojo)">no alcanza</b>':''}`;
+}
+function guardarAbast(gid){
+  const {g, f, gal, base, n} = datosAbast(gid), fecha = $('abFe').value||hoy(), hora = $('abH').value||ahora(), obs = $('abO').value.trim();
+  if(gal<=0){ $('fErr').textContent='Ingrese los galones.'; return; }
+  if(n===null || $('abNFv').value===''){ $('fErr').textContent='Ingrese el nivel en que queda el generador.'; return; }
+  if(base!==null && n < base && !confirm(`El nivel que puso (${n}%) es menor al actual (${base}%). ¿Guardar igual?`)) return;
+  if(gal > f.disp + 0.001){ $('fErr').textContent=`No hay suficiente combustible en el origen (disponible ${fmt(f.disp)} gal).`; return; }
+  const quien = usuario || '';
+  const reg = (id, nota) => { const g1 = JSON.parse(JSON.stringify(g)), h = hist(g1);
+    h.push({id, fecha, hora, nivel:n, horometro:'', responsable:quien, nota, t:Date.now()}); g1.historial = h; recalc(g1); put('generadores', g1); };
+  if(f.v==='res'){
+    const r = JSON.parse(JSON.stringify(resDe(g.piazza))); r.movs = r.movs||[];
+    const m = {id:uid(), tipo:'Uso', cantidad: Math.round(gal/num(r.galCaneca)*100)/100, galones:gal, fecha, hora, generadorId:g.id, generador:genNombre(g),
+      responsable:quien, obs: obs || 'Abastecimiento de generador', nivelGenerador:`${base??'?'}% → ${n}%`, t:Date.now()};
+    r.movs.push(m); put('reservas', r);
+    reg('can-'+m.id, `Abastecido ${fmt(gal)} gal desde la reserva${obs?' · '+obs:''}`);
+  } else {
+    const [, cid, tid] = f.v.split('|'), c0 = state.centros.find(x=>x.id===cid), rep = repartir(c0, tid, gal);
+    if(!rep){ $('fErr').textContent='No hay suficiente combustible en el tanque.'; return; }
+    const t = tqs(c0).find(x=>x.id===tid);
+    const d = {id:uid(), numero:sigNumero(), centroId:cid, origen:c0.nombre, destino:g.piazza, galones:gal, tanqueId:tid, reparto:rep.partes,
+      tanque: rep.partes.length>1 ? rep.partes.map(p=>`${p.nombre.split(' · ')[0]} (${fmt(p.galones)} gal)`).join(' + ') : tqNombre(c0,t),
+      generadorId:g.id, generador:genNombre(g), nivelGenerador:`${base??'?'}% → ${n}%`, nivelAntes:base??undefined, fecha, hora, despacha:quien, traslada:quien,
+      asistente:'', liderEntrega:'', liderRecibe:'', obs, saldoAntes:num(c0.galones), saldoDespues:num(rep.c.galones), creado:Date.now()};
+    put('despachos', d); put('centros', rep.c);
+    reg('desp-'+d.id, `Abastecido ${fmt(gal)} gal · Salida ${d.numero} desde ${d.origen}${obs?' · '+obs:''}`);
+  }
+  cerrar(); render(); revisarAlarma(); toast(`Generador abastecido: ${base!==null?base+'% → ':''}${n}%`);
 }
 function sigNumero(){
   const m = state.despachos.reduce((x,d)=>Math.max(x, parseInt(String(d.numero).replace(/\D/g,''))||0),0);
