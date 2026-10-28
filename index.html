@@ -206,6 +206,8 @@ details.ficha>summary{cursor:pointer;font-weight:700;color:var(--azul2)}
   <h1>⛽ Control de Generadores · Piazzas</h1>
   <div class="acc">
     <span class="estado" id="estado">Modo local</span>
+    <button class="btn sm lt" id="usrBtn" title="Usuario de este equipo (clic para cambiar)" onclick="pedirUsuario(true)">👤 —</button>
+    <button class="btn sm lt" onclick="verBitacora()">📜 Bitácora</button>
     <button class="btn sm lt" onclick="pedirNotif()">🔔 Notificaciones</button>
     <button class="btn sm lt" onclick="exportarRespaldo()">💾 Respaldo</button>
     <button class="btn sm lt" onclick="document.getElementById('impJson').click()">📂 Restaurar</button>
@@ -217,6 +219,13 @@ details.ficha>summary{cursor:pointer;font-weight:700;color:var(--azul2)}
 <main id="main"></main>
 
 <div class="ov" id="ov"><div class="md" id="md"></div></div>
+<div class="ov" id="usrOv" style="z-index:80"><div class="md" style="max-width:420px">
+  <h3>👤 ¿Quién usa este equipo?</h3>
+  <p style="font-size:13px;color:var(--sub);margin:0 0 10px">Escriba su nombre. Quedará registrado en cada cambio que haga (crear, editar o borrar).</p>
+  <div class="fm"><label class="full">Nombre y apellido *<input id="usrNom" maxlength="60" placeholder="Ej.: Ricardo Bohórquez" onkeydown="if(event.key==='Enter')guardarUsuario()"></label></div>
+  <div class="err" id="usrErr"></div>
+  <div class="acciones"><button class="btn sec" id="usrCancel" onclick="$('usrOv').classList.remove('on')">Cancelar</button><button class="btn" onclick="guardarUsuario()">Guardar</button></div>
+</div></div>
 <div class="ov alarma" id="alOv"><div class="md" id="alMd"></div></div>
 <div class="ov" id="imgOv" onclick="this.classList.remove('on')"><img id="imgBig" alt="Ficha técnica"></div>
 <div id="toast"></div>
@@ -271,14 +280,84 @@ function guardarLocal(){
 function cargarLocal(){
   try { const s = JSON.parse(localStorage.getItem(LS)); if(s) COLS.forEach(c => state[c] = s[c] || []); } catch(e){}
 }
+/* ===== Usuario y bitácora de cambios ===== */
+const USR_KEY = 'usuario_generadores';
+let usuario = ''; try{ usuario = localStorage.getItem(USR_KEY) || ''; }catch(e){}
+let silencio = false; // true mientras se cargan datos iniciales (no se registran en la bitácora)
+function pintarUsuario(){ const b = $('usrBtn'); if(b) b.textContent = '👤 ' + (usuario || 'Sin usuario'); }
+function pedirUsuario(cambiar){
+  $('usrNom').value = usuario; $('usrErr').textContent = '';
+  $('usrCancel').style.display = usuario ? '' : 'none';
+  $('usrOv').classList.add('on'); setTimeout(()=>$('usrNom').focus(), 50);
+}
+function guardarUsuario(){
+  const n = $('usrNom').value.trim().replace(/\s+/g,' ');
+  if(n.length < 3){ $('usrErr').textContent = 'Escriba su nombre (mínimo 3 letras).'; return; }
+  const ant = usuario; usuario = n; try{ localStorage.setItem(USR_KEY, n); }catch(e){}
+  $('usrOv').classList.remove('on'); pintarUsuario();
+  if(ant && ant !== n) bitacora('Cambio de usuario', 'Equipo', `${ant} → ${n}`);
+  toast('Usuario: ' + n);
+}
+const NOM_COL = {generadores:'Generador', centros:'Centro de distribución', despachos:'Salida de combustible', ingresos:'Recarga de tanque', reservas:'Canecas / reserva'};
+function describir(col, o, prev){
+  if(!o) return '';
+  if(col==='generadores'){
+    const n = genNombre(o) + ' · ' + (o.piazza||''), h1 = (o.historial||[]).length, h0 = prev ? (prev.historial||[]).length : 0, m1 = (o.mant||[]).length, m0 = prev ? (prev.mant||[]).length : 0;
+    if(prev && h1 > h0){ const u = hist(o).slice(-1)[0]||{}; return `${n} — nuevo registro ${u.fecha?fFecha(u.fecha)+' '+u.hora:''} (nivel ${num(u.nivel)}%)${u.nota?' · '+u.nota:''}`; }
+    if(prev && h1 < h0) return `${n} — borró un registro diario`;
+    if(prev && m1 !== m0) return `${n} — ${m1>m0?'nuevo':'borró'} mantenimiento/problema`;
+    return n;
+  }
+  if(col==='centros') return `${o.nombre||''} · ${fmt(o.galones)} gal`;
+  if(col==='despachos') return `${o.numero||''} · ${o.origen||''} → ${o.destino||''} · ${fmt(o.galones)} gal`;
+  if(col==='ingresos') return `${o.centro||''} · ${o.tanque||''} · +${fmt(o.galones)} gal`;
+  if(col==='reservas'){ const k1=(o.movs||[]).length, k0=prev?(prev.movs||[]).length:0, u=(o.movs||[]).slice(-1)[0]; return `${o.piazza||''}${k1>k0&&u?` — ${u.tipo} ${num(u.cantidad)} caneca(s)`:k1<k0?' — borró un movimiento':''}`; }
+  return o.id;
+}
+function bitacora(accion, modulo, detalle){
+  if(silencio) return;
+  const e = {id: uid(), t: Date.now(), fecha: hoy(), hora: ahora(), usuario: usuario || 'Sin usuario', accion, modulo, detalle: String(detalle||'').slice(0,300)};
+  if(db) try{ db.collection('bitacora').doc(e.id).set(e).catch(()=>{}); }catch(x){}
+  try{ const L = JSON.parse(localStorage.getItem('bitacora_local')||'[]'); L.unshift(e); localStorage.setItem('bitacora_local', JSON.stringify(L.slice(0,500))); }catch(x){}
+}
+async function verBitacora(){
+  abrir('<h3>📜 Bitácora de cambios</h3><div class="nota">Cargando…</div>', true);
+  let L = [];
+  if(db){ try{ const sn = await db.collection('bitacora').orderBy('t','desc').limit(400).get(); L = sn.docs.map(d=>d.data()); }catch(e){ console.error(e); } }
+  if(!L.length){ try{ L = JSON.parse(localStorage.getItem('bitacora_local')||'[]'); }catch(e){} }
+  window._bit = L; pintarBitacora();
+}
+function pintarBitacora(){
+  const L = window._bit||[], q = ($('bitQ')?.value||'').toLowerCase(), u = $('bitU')?.value||'', ac = $('bitA')?.value||'';
+  const us = [...new Set(L.map(e=>e.usuario))].sort();
+  const F = L.filter(e => (!u||e.usuario===u) && (!ac||e.accion===ac) && (!q || (e.detalle+' '+e.modulo).toLowerCase().includes(q)));
+  const col = a => a==='Borró'?'var(--rojo)':a==='Creó'?'var(--verde)':'var(--azul2)';
+  $('md').innerHTML = `<button class="x" onclick="cerrar()">×</button><h3>📜 Bitácora de cambios <span style="font-weight:400;font-size:12px;color:var(--sub)">(quién creó, editó o borró información)</span></h3>
+    <div class="filtros"><label>Usuario<select id="bitU" onchange="pintarBitacora()"><option value="">Todos</option>${us.map(x=>`<option ${x===u?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
+      <label>Acción<select id="bitA" onchange="pintarBitacora()"><option value="">Todas</option>${['Creó','Editó','Borró','Cambio de usuario'].map(x=>`<option ${x===ac?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label>Buscar<input id="bitQ" value="${esc(q)}" oninput="pintarBitacora()" placeholder="Piazza, generador, N° salida…"></label>
+      <button class="btn verde sm" onclick="excelBitacora()">📊 Excel</button></div>
+    <div class="tw" style="max-height:60vh;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th>Usuario</th><th>Acción</th><th>Módulo</th><th>Detalle</th></tr>
+    ${F.length?F.map(e=>`<tr><td>${fFecha(e.fecha)}</td><td>${esc(e.hora)}</td><td><b>${esc(e.usuario)}</b></td><td><b style="color:${col(e.accion)}">${esc(e.accion)}</b></td><td>${esc(e.modulo)}</td><td style="white-space:normal;max-width:480px">${esc(e.detalle)}</td></tr>`).join('')
+      :'<tr><td colspan="6" style="text-align:center;color:var(--sub)">Sin movimientos registrados</td></tr>'}</table></div>`;
+  const qi = $('bitQ'); if(q && qi){ qi.focus(); qi.setSelectionRange(q.length,q.length); }
+}
+function excelBitacora(){
+  const rows = (window._bit||[]).map(e=>({'Fecha':fFecha(e.fecha),'Hora':e.hora,'Usuario':e.usuario,'Acción':e.accion,'Módulo':e.modulo,'Detalle':e.detalle}));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, hoja(rows.length?rows:[{'Sin datos':''}]), 'Bitácora'); XLSX.writeFile(wb, `Bitacora_Generadores_${hoy()}.xlsx`);
+}
 function put(col, obj){
   obj = JSON.parse(JSON.stringify(obj)); // Firestore no acepta valores "undefined"
+  const prev = state[col].find(x => x.id === obj.id);
+  if(!silencio){ obj.editadoPor = usuario || 'Sin usuario'; obj.editadoEn = Date.now(); if(!prev && !obj.creadoPor) obj.creadoPor = obj.editadoPor; }
+  bitacora(prev ? 'Editó' : 'Creó', NOM_COL[col]||col, describir(col, obj, prev));
   const a = state[col], i = a.findIndex(x => x.id === obj.id);
   if(i >= 0) a[i] = obj; else a.push(obj);
   guardarLocal();
   if(db) try{ db.collection(col).doc(obj.id).set(obj).catch(e => toast('Error al sincronizar: '+e.message)); }catch(e){ console.error(e); toast('Error al sincronizar: '+e.message); }
 }
 function del(col, id){
+  const prev = state[col].find(x => x.id === id); bitacora('Borró', NOM_COL[col]||col, describir(col, prev));
   state[col] = state[col].filter(x => x.id !== id);
   guardarLocal();
   if(db) db.collection(col).doc(id).delete().catch(e => toast('Error al sincronizar: '+e.message));
@@ -1611,8 +1690,10 @@ function importarRespaldo(inp){
   const r = new FileReader();
   r.onload = () => { try{
     const s = JSON.parse(r.result); if(!confirm('¿Restaurar este respaldo? Reemplazará los datos actuales.')) return;
+    silencio = true;
     COLS.forEach(c => (s[c]||[]).forEach(o => put(c, o)));
     COLS.forEach(c => state[c].filter(o => !(s[c]||[]).some(x=>x.id===o.id)).forEach(o => del(c, o.id)));
+    silencio = false; bitacora('Editó', 'Respaldo', 'Restauró un respaldo completo ('+f.name+')');
     render(); revisarAlarma(); toast('Respaldo restaurado');
   }catch(e){ toast('Archivo no válido'); } inp.value=''; };
   r.readAsText(f);
@@ -1655,7 +1736,7 @@ async function aplicarSeedFirebase(){
 }
 
 /* ===== Inicio ===== */
-cargarLocal(); if(!FIREBASE_CONFIG.apiKey){ aplicarSeedLocal(); aplicarSeedCentros(); aplicarSeedReservas(); } render(); revisarAlarma(); initFirebase();
+cargarLocal(); if(!FIREBASE_CONFIG.apiKey){ silencio = true; aplicarSeedLocal(); aplicarSeedCentros(); aplicarSeedReservas(); silencio = false; } pintarUsuario(); render(); revisarAlarma(); initFirebase(); if(!usuario) pedirUsuario();
 </script>
 </body>
 </html>
