@@ -678,7 +678,7 @@ function renderResumen(){
     <div class="res">${gs.length} generadores · capacidad total ${fmt(cap)} gal · combustible disponible ≈ ${fmt(disp)} gal${bajos?` · <b style="color:var(--rojo)">${bajos} por abastecer</b>`:''}${sin?` · ${sin} sin registro de nivel`:''}</div></div>
     <div style="display:flex;gap:6px"><button class="btn" style="background:#6a1b9a" onclick="informeGen()">📑 Informe por generador</button><button class="btn verde" onclick="excelResumen()">📊 Excel</button><button class="btn sec" onclick="imprimirResumen()">🖨 Imprimir</button></div></div>
   <div class="panel rsmBox" style="margin-top:0;padding:0;overflow:hidden"><div class="tw"><table class="tres rsm">
-    <tr><th>PIAZZA</th><th>BLOQUE</th><th>UBICACIÓN</th><th class="n">CAPACIDAD MÁX. TANQUE (gal)</th><th>NIVEL DE COMBUSTIBLE</th><th style="width:1%">RESERVA</th></tr>`;
+    <tr><th>PIAZZA</th><th>BLOQUE</th><th>UBICACIÓN</th><th class="n">CAP. (gal)</th><th>NIVEL DE COMBUSTIBLE</th><th>RESERVA</th></tr>`;
   PIAZZAS.forEach(p => {
     const gp = gs.filter(g=>g.piazza===p); if(!gp.length) return;
     gp.forEach((g,i) => {
