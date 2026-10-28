@@ -676,7 +676,7 @@ function renderResumen(){
   const cap = gs.reduce((s,g)=>s+num(g.capacidad),0), disp = gs.reduce((s,g)=>s+galRest(g),0), bajos = gs.filter(g=>tieneNivel(g)&&num(g.nivel)<UMBRAL).length, sin = gs.filter(g=>!tieneNivel(g)).length;
   let h = `<div class="top"><div><h2>📋 Resumen de generadores – Piazzas</h2>
     <div class="res">${gs.length} generadores · capacidad total ${fmt(cap)} gal · combustible disponible ≈ ${fmt(disp)} gal${bajos?` · <b style="color:var(--rojo)">${bajos} por abastecer</b>`:''}${sin?` · ${sin} sin registro de nivel`:''}</div></div>
-    <div style="display:flex;gap:6px"><button class="btn verde" onclick="excelResumen()">📊 Excel</button><button class="btn sec" onclick="imprimirResumen()">🖨 Imprimir</button></div></div>
+    <div style="display:flex;gap:6px"><button class="btn" style="background:#6a1b9a" onclick="informeGen()">📑 Informe por generador</button><button class="btn verde" onclick="excelResumen()">📊 Excel</button><button class="btn sec" onclick="imprimirResumen()">🖨 Imprimir</button></div></div>
   <div class="panel rsmBox" style="margin-top:0;padding:0;overflow:hidden"><div class="tw"><table class="tres rsm">
     <tr><th>PIAZZA</th><th>BLOQUE</th><th>UBICACIÓN</th><th class="n">CAPACIDAD MÁX. TANQUE (gal)</th><th>NIVEL DE COMBUSTIBLE</th><th style="width:1%">RESERVA</th></tr>`;
   PIAZZAS.forEach(p => {
@@ -723,7 +723,7 @@ function genAl(g, f){
 const MALOS = ['Bajo','Baja','Requiere cambio','Fuga','Con novedad','En mantenimiento','Fuera de servicio'];
 function datosReporte(f){
   const gens = resumenGens().map(g=>genAl(g,f));
-  const sal = state.despachos.filter(d=>d.fecha===f).sort((a,b)=>a.hora.localeCompare(b.hora));
+  const sal = state.despachos.filter(d=>d.fecha===f && !d.abast).sort((a,b)=>a.hora.localeCompare(b.hora)); // los abastecimientos directos al generador van en el informe por generador
   const rec = state.ingresos.filter(i=>i.fecha===f).sort((a,b)=>a.hora.localeCompare(b.hora));
   const cs = state.centros.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const nov = [];
@@ -1003,7 +1003,7 @@ function verGen(id){
   <div style="margin-top:8px"><b style="font-size:11px;color:var(--sub)">FOTO FICHA TÉCNICA</b>${g.foto?`<div class="fotoprev"><img src="${g.foto}" onclick="verImg(this.src)"></div>`:'<div style="color:var(--sub);font-size:13px">Sin foto cargada</div>'}</div>
   </details>
   <div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">📅 Registro diario / Historial (${h.length})</h3>
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" style="background:#e65100" onclick="formAbastecer('${g.id}')">⛽ Abastecer</button><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" style="background:#e65100" onclick="formAbastecer('${g.id}')">⛽ Abastecer</button><button class="btn sm" style="background:#6a1b9a" onclick="informeGen('${g.id}')">📑 Informe</button><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
     ${h.length?`<button class="btn sec sm" onclick="excelHist('${g.id}')">📊 Excel</button><button class="btn sec sm" onclick="pdfHist('${g.id}')">📄 PDF</button>`:''}</div></div>
     <div class="tw" style="max-height:360px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th class="n">Nivel</th><th class="n">Galones</th><th class="n">Horómetro</th><th class="n">Encendido</th><th>Aceite</th><th>Batería</th><th>Refrigerante</th><th>Estado</th><th>Responsable</th><th>Observación</th><th></th></tr>
     ${h.length ? h.map(r=>`<tr class="${['aceite','bateria','refrigerante','estado'].some(k=>MALOS.includes(r[k]))?'mal':''}"><td>${fFecha(r.fecha)}</td><td>${esc(r.hora)}</td><td class="n" style="color:${color(r.nivel)};font-weight:700">${num(r.nivel)}%</td>
@@ -1187,6 +1187,86 @@ function excelHist(gid){
   const ud = Object.entries(usoPorDia(g)).sort((a,b)=>b[0].localeCompare(a[0])).map(([f,m])=>({'Fecha':fFecha(f),'Horas encendido':fmtHM(m),'Horas (decimal)':Math.round(m/60*100)/100}));
   if(ud.length) XLSX.utils.book_append_sheet(wb, hoja(ud), 'Horas por día');
   XLSX.writeFile(wb, `Historial_${g.piazza.replace(/\s/g,'_')}_${g.ubicacion.replace(/[^\w]+/g,'_')}_${hoy()}.xlsx`);
+}
+/* ===== Informe por generador (abastecimientos, registros, novedades, horas de encendido) ===== */
+let infG = {gid:'', desde:'', hasta:''};
+function abastGen(g, d1, d2){
+  const L = [];
+  state.despachos.filter(d=>d.generadorId===g.id).forEach(d => L.push({fecha:d.fecha, hora:d.hora, galones:num(d.galones), origen:`${d.origen} · ${d.tanque||''}`, ref:d.numero, nivel:d.nivelGenerador||'', resp:d.despacha||d.liderRecibe||'', obs:d.obs||''}));
+  state.reservas.forEach(r => (r.movs||[]).filter(m=>m.tipo==='Uso' && m.generadorId===g.id).forEach(m => L.push({fecha:m.fecha, hora:m.hora, galones:num(m.galones)||num(m.cantidad)*num(r.galCaneca), origen:`Reserva ${r.piazza} (${fmt(m.cantidad)} caneca/s)`, ref:'Reserva', nivel:m.nivelGenerador||'', resp:m.responsable||'', obs:m.obs||''})));
+  return L.filter(x=>(!d1||x.fecha>=d1)&&(!d2||x.fecha<=d2)).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+}
+function datosInforme(){
+  const g = state.generadores.find(x=>x.id===infG.gid); if(!g) return null;
+  const d1 = infG.desde, d2 = infG.hasta, en = f => (!d1||f>=d1)&&(!d2||f<=d2);
+  const regs = hist(g).filter(r=>!esCarga(r) && en(r.fecha)), uso = usoRegistros(g), upd = usoPorDia(g);
+  const dias = Object.keys(upd).filter(en).sort(), horas = dias.reduce((s,d)=>s+upd[d],0);
+  const ab = abastGen(g, d1, d2), ms = mants(g).filter(m=>en(m.fecha)).reverse();
+  const nov = [];
+  regs.forEach(r => { const malos = ['aceite','bateria','refrigerante','estado'].filter(k=>MALOS.includes(r[k])).map(k=>`${NOMB[k]}: ${r[k]}`);
+    if(malos.length || r.nota) nov.push({fecha:r.fecha, hora:r.hora, tipo:'Registro diario', det:[...malos, r.nota||''].filter(Boolean).join(' · '), resp:r.responsable||''}); });
+  ms.forEach(m => nov.push({fecha:m.fecha, hora:m.hora||'', tipo:m.tipo, det:`${m.pieza}: ${m.descripcion} (${m.estado}${m.fechaSol?' · solucionado '+fFecha(m.fechaSol):''})`, resp:m.tecnico||''}));
+  nov.sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  return {g, d1, d2, regs, uso, upd, dias, horas, ab, ms, nov, galAb: ab.reduce((s,x)=>s+x.galones,0)};
+}
+function informeGen(gid){
+  const gs = resumenGens();
+  if(!infG.desde) infG.desde = hoy().slice(0,8)+'01';
+  if(!infG.hasta) infG.hasta = hoy();
+  infG.gid = gid || infG.gid || (gs[0]&&gs[0].id);
+  abrir('<div id="infBox"></div>', true); pintarInforme();
+}
+function pintarInforme(){
+  const gs = resumenGens(), D = datosInforme(); if(!D) return;
+  const {g} = D, t = (cols, rows) => `<div class="tw"><table><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>${rows.length?rows.join(''):`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--sub)">Sin datos en el periodo</td></tr>`}</table></div>`;
+  $('infBox').innerHTML = `<h3 style="padding-right:30px">📑 Informe por generador</h3>
+  <div class="filtros"><label>Generador<select onchange="infG.gid=this.value;pintarInforme()">${gs.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.piazza)} · ${esc(genNombre(x))}</option>`).join('')}</select></label>
+    <label>Desde<input type="date" value="${D.d1}" onchange="infG.desde=this.value;pintarInforme()"></label><label>Hasta<input type="date" value="${D.d2}" onchange="infG.hasta=this.value;pintarInforme()"></label>
+    <button class="btn rojo sm" onclick="pdfInforme()">📄 PDF</button><button class="btn verde sm" onclick="excelInforme()">📊 Excel</button></div>
+  <div class="kpis" style="margin-bottom:10px">
+    <div class="kpi"><div class="kt">Nivel actual</div><div class="kv" style="color:${color(num(g.nivel))}">${tieneNivel(g)?num(g.nivel)+'%':'—'}</div><div class="ks">${fmt(galRest(g))} de ${fmt(g.capacidad)} gal</div></div>
+    <div class="kpi" style="border-top-color:#e65100"><div class="kt">Abastecimientos</div><div class="kv">${D.ab.length}</div><div class="ks">${fmt(D.galAb)} gal en total</div></div>
+    <div class="kpi" style="border-top-color:#1565c0"><div class="kt">Horas de encendido</div><div class="kv">${fmtHM(D.horas)}</div><div class="ks">${D.dias.filter(d=>D.upd[d]>0).length} día(s) con encendido</div></div>
+    <div class="kpi" style="border-top-color:#2e7d32"><div class="kt">Registros diarios</div><div class="kv">${D.regs.length}</div><div class="ks">Horómetro ${fmtHor(g.horometro)}</div></div>
+    <div class="kpi" style="border-top-color:#c62828"><div class="kt">Novedades</div><div class="kv">${D.nov.length}</div><div class="ks">${mantPend(g).length} pendiente(s)</div></div></div>
+  <div class="panel" style="margin-top:0"><h3>⛽ Abastecimientos</h3>${t(['Fecha','Hora','Galones','Origen','Ref.','Nivel','Responsable','Observación'],
+    D.ab.map(x=>`<tr><td>${fFecha(x.fecha)}</td><td>${esc(x.hora)}</td><td class="n"><b>${fmt(x.galones)}</b></td><td>${esc(x.origen)}</td><td>${esc(x.ref)}</td><td>${esc(x.nivel)}</td><td>${esc(x.resp)}</td><td style="white-space:normal">${esc(x.obs)}</td></tr>`))}</div>
+  <div class="panel"><h3>⚠ Novedades y mantenimientos</h3>${t(['Fecha','Hora','Tipo','Detalle','Responsable / técnico'],
+    D.nov.map(x=>`<tr><td>${fFecha(x.fecha)}</td><td>${esc(x.hora)}</td><td>${esc(x.tipo)}</td><td style="white-space:normal">${esc(x.det)}</td><td>${esc(x.resp)}</td></tr>`))}</div>
+  <div class="panel"><h3>🔋 Horas de encendido por día</h3>${t(['Fecha','Horas encendido'], D.dias.map(d=>`<tr><td>${fFecha(d)}</td><td>${D.upd[d]>0?minChip(D.upd[d]):fmtHM(0)}</td></tr>`))}</div>
+  <div class="panel"><h3>📅 Registros diarios</h3>${t(['Fecha','Hora','Nivel','Horómetro','Encendido','Aceite','Batería','Refrig.','Estado','Responsable','Observación'],
+    D.regs.map(r=>`<tr><td>${fFecha(r.fecha)}</td><td>${esc(r.hora)}</td><td>${num(r.nivel)}%</td><td>${r.horometro?fmtHor(r.horometro):''}</td><td>${D.uso[r.id]!==undefined?fmtHM(D.uso[r.id]):''}</td><td>${chip('aceite',r.aceite)}</td><td>${chip('bateria',r.bateria)}</td><td>${chip('refrigerante',r.refrigerante)}</td><td>${chip('estado',r.estado)}</td><td>${esc(r.responsable||'')}</td><td style="white-space:normal">${esc(r.nota||'')}</td></tr>`))}</div>`;
+}
+function filasInforme(D){
+  return {
+    resumen:[{'Dato':'Generador','Valor':`${D.g.piazza} · ${genNombre(D.g)}`},{'Dato':'Periodo','Valor':`${fFecha(D.d1)} al ${fFecha(D.d2)}`},{'Dato':'Nivel actual (%)','Valor':tieneNivel(D.g)?num(D.g.nivel):''},
+      {'Dato':'Abastecimientos','Valor':D.ab.length},{'Dato':'Galones abastecidos','Valor':D.galAb},{'Dato':'Horas de encendido','Valor':fmtHM(D.horas)},{'Dato':'Registros diarios','Valor':D.regs.length},{'Dato':'Novedades','Valor':D.nov.length}],
+    ab: D.ab.map(x=>({'Fecha':fFecha(x.fecha),'Hora':x.hora,'Galones':x.galones,'Origen':x.origen,'Ref.':x.ref,'Nivel':String(x.nivel).replace('→','->'),'Responsable':x.resp,'Observación':x.obs})),
+    nov: D.nov.map(x=>({'Fecha':fFecha(x.fecha),'Hora':x.hora,'Tipo':x.tipo,'Detalle':x.det,'Responsable / técnico':x.resp})),
+    horas: D.dias.map(d=>({'Fecha':fFecha(d),'Horas encendido':fmtHM(D.upd[d])})),
+    regs: D.regs.map(r=>{ const f = filaReg(D.g, r); delete f['Piazza']; delete f['Sector']; return f; })
+  };
+}
+function excelInforme(){
+  const D = datosInforme(), F = filasInforme(D), wb = XLSX.utils.book_new();
+  [['Resumen',F.resumen],['Abastecimientos',F.ab],['Novedades',F.nov],['Horas encendido',F.horas],['Registros diarios',F.regs]].forEach(([n,r])=>XLSX.utils.book_append_sheet(wb, hoja(r.length?r:[{'Sin datos':''}]), n));
+  XLSX.writeFile(wb, `Informe_${D.g.piazza}_${genNombre(D.g)}_${D.d1}_${D.d2}.xlsx`.replace(/[^\p{L}\p{N}.\-]+/gu,'_'));
+}
+function pdfInforme(){
+  if(!window.jspdf) return toast('No se pudo cargar el generador de PDF');
+  const D = datosInforme(), F = filasInforme(D), { jsPDF } = window.jspdf, doc = new jsPDF({orientation:'landscape'});
+  doc.setFontSize(14); doc.text('INFORME DEL GENERADOR', 148, 13, {align:'center'});
+  doc.setFontSize(10); doc.text(`${D.g.piazza} · ${genNombre(D.g)}   |   Periodo: ${fFecha(D.d1)} al ${fFecha(D.d2)}`, 148, 19, {align:'center'});
+  doc.setFontSize(9); doc.text(`Nivel actual: ${tieneNivel(D.g)?num(D.g.nivel)+'%':'—'}   Abastecimientos: ${D.ab.length} (${fmt(D.galAb)} gal)   Horas de encendido: ${fmtHM(D.horas)}   Registros: ${D.regs.length}   Novedades: ${D.nov.length}   Generado: ${new Date().toLocaleString('es-EC')}`, 148, 25, {align:'center'});
+  let y = 30;
+  const sec = (tit, rows, colr) => { doc.setFontSize(11); doc.text(tit, 14, y+4);
+    if(!rows.length){ doc.setFontSize(9); doc.text('Sin datos en el periodo', 14, y+10); y += 16; return; }
+    const c = Object.keys(rows[0]); doc.autoTable({startY:y+6, head:[c], body:rows.map(r=>c.map(k=>String(r[k]??''))), styles:{fontSize:8,cellPadding:1.6}, headStyles:{fillColor:colr}});
+    y = doc.lastAutoTable.finalY + 6; };
+  sec('Abastecimientos', F.ab, [230,81,0]); sec('Novedades y mantenimientos', F.nov, [198,40,40]); sec('Horas de encendido por día', F.horas, [21,101,192]); sec('Registros diarios', F.regs, [15,42,74]);
+  if(y > 180){ doc.addPage(); y = 20; } doc.setFontSize(9); doc.line(60, y+18, 130, y+18); doc.text('Ricardo Bohórquez', 95, y+23, {align:'center'}); doc.text('Elaborado por', 95, y+28, {align:'center'});
+  doc.line(170, y+18, 240, y+18); doc.text('Revisado por', 205, y+28, {align:'center'});
+  doc.save(`Informe_${D.g.piazza}_${genNombre(D.g)}_${D.d1}_${D.d2}.pdf`.replace(/[^\p{L}\p{N}.\-]+/gu,'_'));
 }
 function pdfHist(gid){
   const g = state.generadores.find(x=>x.id===gid), { jsPDF } = window.jspdf, doc = new jsPDF({orientation:'landscape'});
@@ -1563,7 +1643,7 @@ function guardarAbast(gid){
     const t = tqs(c0).find(x=>x.id===tid);
     const d = {id:uid(), numero:sigNumero(), centroId:cid, origen:c0.nombre, destino:g.piazza, galones:gal, tanqueId:tid, reparto:rep.partes,
       tanque: rep.partes.length>1 ? rep.partes.map(p=>`${p.nombre.split(' · ')[0]} (${fmt(p.galones)} gal)`).join(' + ') : tqNombre(c0,t),
-      generadorId:g.id, generador:genNombre(g), nivelGenerador:`${base??'?'}% → ${n}%`, nivelAntes:base??undefined, fecha, hora, despacha:quien, traslada:quien,
+      abast:true, generadorId:g.id, generador:genNombre(g), nivelGenerador:`${base??'?'}% → ${n}%`, nivelAntes:base??undefined, fecha, hora, despacha:quien, traslada:quien,
       asistente:'', liderEntrega:'', liderRecibe:'', obs, saldoAntes:num(c0.galones), saldoDespues:num(rep.c.galones), creado:Date.now()};
     put('despachos', d); put('centros', rep.c);
     reg('desp-'+d.id, `Abastecido ${fmt(gal)} gal · Salida ${d.numero} desde ${d.origen}${obs?' · '+obs:''}`);
