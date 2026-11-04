@@ -544,7 +544,7 @@ function canecasHTML(p){
       <div class="ic">${n>0?'<span>🛢</span>'.repeat(Math.min(n,40))+(n>40?` +${n-40}`:''):'<span style="font-size:13px;color:var(--rojo);font-weight:700">⚠ Sin canecas de reserva</span>'}</div></div>
     <details style="margin-top:10px"${movs.length?'':' open'}><summary style="cursor:pointer;font-weight:700;font-size:13px">Historial de canecas (${movs.length})</summary>
     <div class="tw" style="max-height:260px;overflow-y:auto;margin-top:6px"><table><tr><th>Fecha</th><th>Hora</th><th>Movimiento</th><th class="n">Canecas</th><th class="n">Saldo</th><th>Generador</th><th>Responsable</th><th>Observación</th><th></th></tr>
-    ${movs.length?movs.map(m=>`<tr><td>${fFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${m.traslado?(m.tipo==='Uso'?`🚚 Traslado a ${esc(m.traslado.destino)}`:`🚚 Traslado desde ${esc(m.traslado.origen)}`):m.despachoId?`⬇ ${esc(m.obs)} (+${fmt(m.galones)} gal)`:m.tipo==='Ingreso'?'⬇ Ingreso':m.tipo==='Uso'?'⬆ Uso':m.tipo==='Trasvase'?`⛽ Desde ${esc(m.tanque||'tanque')} (−${fmt(m.galones)} gal)`:'🔢 Conteo'}</td>
+    ${movs.length?movs.map(m=>`<tr><td>${fFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${m.traslado?(m.tipo==='Uso'?`🚚 Traslado a ${esc(m.traslado.destino)}`:`🚚 Traslado desde ${esc(m.traslado.origen)}`)+(m.traslado.entrega||m.traslado.recibe?`<br><small style="color:var(--sub)">Entrega: <b>${esc(m.traslado.entrega||'—')}</b> · Recibe: <b>${esc(m.traslado.recibe||'—')}</b></small>`:''):m.despachoId?`⬇ ${esc(m.obs)} (+${fmt(m.galones)} gal)`:m.tipo==='Ingreso'?'⬇ Ingreso':m.tipo==='Uso'?'⬆ Uso':m.tipo==='Trasvase'?`⛽ Desde ${esc(m.tanque||'tanque')} (−${fmt(m.galones)} gal)`:'🔢 Conteo'}</td>
       <td class="n"><b style="color:${m.tipo==='Ingreso'||m.tipo==='Trasvase'?'var(--verde)':m.tipo==='Uso'?'var(--rojo)':'inherit'}">${m.tipo==='Ingreso'||m.tipo==='Trasvase'?'+':m.tipo==='Uso'?'−':'='}${num(m.cantidad)}</b></td><td class="n">${m._saldo}</td>
       <td>${esc(m.generador||'')}${m.nivelGenerador?`<br><small style="color:var(--verde)">${esc(m.nivelGenerador)}</small>`:''}</td><td>${esc(m.responsable||'')}</td><td>${esc(m.obs||'')}</td>
       <td>${m.traslado?`<button class="btn sec sm" title="Borra el traslado en las dos Piazzas" onclick="borrarTraslado('${m.traslado.id}')">🗑</button>`:m.despachoId?'<span style="font-size:11px;color:var(--sub)" title="Se modifica desde la salida del Centro de Distribución">desde salida</span>':`<button class="btn sec sm" onclick="formCaneca('${p}','${m.tipo}','${m.id}')">✏</button> <button class="btn sec sm" onclick="borrarCaneca('${p}','${m.id}')">🗑</button>`}</td></tr>`).join('')
@@ -619,8 +619,9 @@ function formTraslado(p){
   abrir(`<h3>🚚 Trasladar canecas · desde ${esc(p)}</h3><div class="res" style="margin-bottom:8px">Disponibles: <b>${fmt(r.n)}</b> caneca(s) · ${fmt(r.gal)} gal (${fmt(r.r.galCaneca)} gal c/u)</div>
     <div class="fm">
       <label class="full">Piazza destino *<select id="trD">${PIAZZAS.filter(x=>x!==p).map(x=>`<option>${x}</option>`).join('')}</select></label>
-      <label>Cantidad de canecas *<input id="trC" type="number" min="1" step="1" oninput="$('trPrev').innerHTML=num(this.value)>0?'Salen <b>'+fmt(num(this.value)*${num(r.r.galCaneca)})+' gal</b>':''"></label>
-      <label>Responsable<input id="trR" value="${esc(usuario)}"></label>
+      <label class="full">Cantidad de canecas *<input id="trC" type="number" min="1" step="1" oninput="$('trPrev').innerHTML=num(this.value)>0?'Salen <b>'+fmt(num(this.value)*${num(r.r.galCaneca)})+' gal</b>':''"></label>
+      <label>Entrega (quien traslada) *<input id="trR" value="${esc(usuario)}" placeholder="Nombre de quien lleva las canecas"></label>
+      <label>Recibe (quien recibe en destino) *<input id="trRec" placeholder="Nombre de quien recibe"></label>
       <label>Fecha<input id="trF" type="date" value="${hoy()}"></label><label>Hora<input id="trH" type="time" value="${ahora()}"></label>
       <label class="full">Observación<input id="trO"></label><div class="full" id="trPrev" style="font-size:13px"></div>
     </div><div class="err" id="fErr"></div>
@@ -631,12 +632,15 @@ function guardarTraslado(p){
   if(cant<=0){ $('fErr').textContent='Ingrese la cantidad de canecas.'; return; }
   if(cant > o.n){ $('fErr').textContent=`Solo hay ${fmt(o.n)} caneca(s) en ${p}.`; return; }
   const ro = JSON.parse(JSON.stringify(resDe(p))), rd = JSON.parse(JSON.stringify(resDe(dest))); ro.movs = ro.movs||[]; rd.movs = rd.movs||[];
-  const gal = cant*num(ro.galCaneca), id = uid(), fecha = $('trF').value||hoy(), hora = $('trH').value||ahora(), resp = $('trR').value.trim(), obs = $('trO').value.trim(), t = Date.now();
-  const tr = {id, origen:p, destino:dest, galones:gal};
-  ro.movs.push({id:'tras-'+id+'-o', tipo:'Uso', cantidad:cant, galones:gal, fecha, hora, generadorId:'', generador:'', responsable:resp, obs: obs||`Traslado a ${dest}`, traslado:tr, t});
-  rd.movs.push({id:'tras-'+id+'-d', tipo:'Ingreso', cantidad: Math.round(gal/num(rd.galCaneca)*100)/100, galones:gal, fecha, hora, generadorId:'', generador:'', responsable:resp, obs: obs||`Traslado desde ${p}`, traslado:tr, t});
+  const entrega = $('trR').value.trim(), recibe = $('trRec').value.trim();
+  if(!entrega){ $('fErr').textContent='Escriba quién traslada (entrega) las canecas.'; return; }
+  if(!recibe){ $('fErr').textContent=`Escriba quién recibe las canecas en ${dest}.`; return; }
+  const gal = cant*num(ro.galCaneca), id = uid(), fecha = $('trF').value||hoy(), hora = $('trH').value||ahora(), obs = $('trO').value.trim(), t = Date.now();
+  const tr = {id, origen:p, destino:dest, galones:gal, cantidad:cant, entrega, recibe};
+  ro.movs.push({id:'tras-'+id+'-o', tipo:'Uso', cantidad:cant, galones:gal, fecha, hora, generadorId:'', generador:'', responsable:entrega, obs: obs||`Traslado a ${dest}`, traslado:tr, t});
+  rd.movs.push({id:'tras-'+id+'-d', tipo:'Ingreso', cantidad: Math.round(gal/num(rd.galCaneca)*100)/100, galones:gal, fecha, hora, generadorId:'', generador:'', responsable:recibe, obs: obs||`Traslado desde ${p}`, traslado:tr, t});
   put('reservas', ro); put('reservas', rd);
-  render(); verCanecas(p); toast(`${cant} caneca(s) trasladadas de ${p} a ${dest}`);
+  render(); verCanecas(p); toast(`${cant} caneca(s) trasladadas de ${p} a ${dest} · entrega ${entrega}, recibe ${recibe}`);
 }
 function borrarTraslado(id){
   const rs = state.reservas.filter(r=>(r.movs||[]).some(m=>m.traslado&&m.traslado.id===id)); if(!rs.length) return;
@@ -1040,12 +1044,12 @@ function verGen(id){
   <div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">📅 Registro diario / Historial (${h.length})</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" style="background:#e65100" onclick="formAbastecer('${g.id}')">⛽ Abastecer</button><button class="btn sm" style="background:#6a1b9a" onclick="informeGen('${g.id}')">📑 Informe</button><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
     ${h.length?`<button class="btn sec sm" onclick="excelHist('${g.id}')">📊 Excel</button><button class="btn sec sm" onclick="pdfHist('${g.id}')">📄 PDF</button>`:''}</div></div>
-    <div class="tw" style="max-height:360px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th class="n">Nivel</th><th class="n">Galones</th><th class="n">Horómetro</th><th class="n">Encendido</th><th>Aceite</th><th>Batería</th><th>Refrigerante</th><th>Estado</th><th>Responsable</th><th>Observación</th><th></th></tr>
+    <div class="tw" style="max-height:360px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th class="n">Nivel</th><th class="n">Galones</th><th class="n">Horómetro</th><th class="n">Encendido</th><th class="n">Canecas</th><th>Aceite</th><th>Batería</th><th>Refrigerante</th><th>Estado</th><th>Responsable</th><th>Observación</th><th></th></tr>
     ${h.length ? h.map(r=>`<tr class="${['aceite','bateria','refrigerante','estado'].some(k=>MALOS.includes(r[k]))?'mal':''}"><td>${fFecha(r.fecha)}</td><td>${esc(r.hora)}</td><td class="n" style="color:${color(r.nivel)};font-weight:700">${num(r.nivel)}%</td>
-      <td class="n">${fmt(num(g.capacidad)*num(r.nivel)/100)}</td><td class="n">${r.horometro?fmtHor(r.horometro):''}</td><td class="n">${uso[r.id]!==undefined?'+'+fmtHM(uso[r.id]):''}</td><td>${chip('aceite',r.aceite)}</td><td>${chip('bateria',r.bateria)}</td>
+      <td class="n">${fmt(num(g.capacidad)*num(r.nivel)/100)}</td><td class="n">${r.horometro?fmtHor(r.horometro):''}</td><td class="n">${uso[r.id]!==undefined?'+'+fmtHM(uso[r.id]):''}</td><td class="n">${r.canecas!==undefined?'🛢 '+fmt(r.canecas):''}</td><td>${chip('aceite',r.aceite)}</td><td>${chip('bateria',r.bateria)}</td>
       <td>${chip('refrigerante',r.refrigerante)}</td><td>${chip('estado',r.estado)}</td><td>${esc(r.responsable||'')}</td><td>${esc(r.nota||'')}</td>
       <td><button class="btn sec sm" title="Modificar" onclick="formReg('${g.id}','${r.id}')">✏</button> <button class="btn sec sm" title="Borrar" onclick="borrarReg('${g.id}','${r.id}')">🗑</button></td></tr>`).join('')
-      : '<tr><td colspan="13" style="text-align:center;color:var(--sub)">Sin registros</td></tr>'}</table></div></div>
+      : '<tr><td colspan="14" style="text-align:center;color:var(--sub)">Sin registros</td></tr>'}</table></div></div>
   <div class="acciones"><button class="btn rojo" onclick="eliminarGen('${g.id}')">🗑 Eliminar generador</button><button class="btn sec" onclick="formGen('${g.id}')">✏ Editar datos</button><button class="btn" onclick="cerrar()">Cerrar</button></div>`, true);
 }
 
@@ -1064,10 +1068,34 @@ function formReg(gid, rid){
     <label>Refrigerante${selHTML('rRef','refrigerante',r.refrigerante)}</label>
     <label>Estado general${selHTML('rEst','estado',r.estado)}</label>
     <label>Responsable<input id="rResp" value="${esc(r.responsable||'')}"></label>
+    <div class="full"><div class="sep" style="margin:4px 0 6px">🛢 Canecas de reserva · Piazza ${esc(g.piazza)}</div>
+      ${(()=>{ const c = canecasDe(g.piazza), gc = num(c.r.galCaneca), v = r.canecas ?? (rid ? '' : c.n);
+        return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+          <label>Canecas en reserva (conteo de hoy)<input id="rCan" type="number" min="0" step="1" value="${esc(v)}" placeholder="Ej.: 18" oninput="prevCanReg(${gc},${c.n})"></label>
+          <div id="rCanPrev" style="font-size:13px;padding-bottom:10px"></div></div>
+          <div style="margin-top:4px;font-size:12px;color:var(--sub)">Ahora hay <b>${fmt(c.n)}</b> caneca(s) · ${fmt(c.gal)} gal (${fmt(gc)} gal c/u). Si el número cambia, se guarda como conteo físico en el historial de canecas.</div>`; })()}
+    </div>
     <label class="full">Observación<input id="rNota" value="${esc(r.nota||'')}" placeholder="Ej.: abastecido 20 gal, prueba en vacío, etc."></label>
   </div><div class="err" id="fErr"></div>
   <div class="acciones"><button class="btn sec" onclick="verGen('${gid}')">Cancelar</button><button class="btn verde" onclick="guardarReg('${gid}','${rid||''}')">💾 Guardar registro</button></div>`);
-  onNivel();
+  onNivel(); const c0 = canecasDe(g.piazza); prevCanReg(num(c0.r.galCaneca), c0.n);
+}
+function prevCanReg(gc, n0){
+  const el = $('rCan'), out = $('rCanPrev'); if(!el || !out) return;
+  if(el.value===''){ out.innerHTML = '<span style="color:var(--sub)">Sin conteo de canecas en este registro</span>'; return; }
+  const n = Math.max(0, Math.round(num(el.value))), d = n - n0;
+  out.innerHTML = `= <b>${fmt(n*gc)} gal</b> en reserva` + (d ? ` · <b style="color:${d<0?'var(--rojo)':'#2e7d32'}">${d>0?'+':''}${fmt(d)} caneca(s)</b> vs. el saldo actual` : ' · <span style="color:#2e7d32">igual al saldo actual</span>');
+}
+/* Conteo de canecas ligado a un registro diario (se crea, actualiza o borra junto con el registro) */
+function canecasDeReg(g, r, cant){
+  const p = g.piazza; if(!p) return;
+  const res = JSON.parse(JSON.stringify(resDe(p))); res.movs = res.movs||[];
+  const id = 'reg-'+r.id, i = res.movs.findIndex(x=>x.id===id);
+  if(cant===null){ if(i>=0){ res.movs.splice(i,1); put('reservas', res); } return; }
+  if(i<0){ const sinEste = canecasDe(p).n; if(sinEste===cant) return; }
+  const m = {id, tipo:'Conteo', cantidad:cant, fecha:r.fecha, hora:r.hora, generadorId:g.id, generador:genNombre(g), responsable:r.responsable, obs:'Conteo en registro diario', t: i>=0 ? (res.movs[i].t||Date.now()) : Date.now()};
+  if(i>=0) res.movs[i]=m; else res.movs.push(m);
+  put('reservas', res);
 }
 function guardarReg(gid, rid){
   const g = Object.assign({}, state.generadores.find(x=>x.id===gid)), h = hist(g);
@@ -1080,16 +1108,19 @@ function guardarReg(gid, rid){
   const old = rid ? h.find(x=>x.id===rid) : null;
   const r = {id: rid||uid(), fecha, hora, nivel:+$('fNivel').value, horometro:hor, aceite:$('rAce').value, bateria:$('rBat').value,
     refrigerante:$('rRef').value, estado:$('rEst').value, responsable:$('rResp').value.trim(), nota:$('rNota').value.trim(), t: old ? (old.t||Date.now()) : Date.now()};
+  const canV = $('rCan') ? $('rCan').value : '';
+  if(canV!=='' && num(canV)<0){ $('fErr').textContent='Las canecas no pueden ser negativas.'; return; }
+  const cant = canV==='' ? null : Math.round(num(canV)); if(cant!==null) r.canecas = cant;
   const i = h.findIndex(x=>x.id===r.id); if(i>=0) h[i]=r; else h.push(r);
   g.historial = h; g.actualizado = Date.now(); recalc(g);
-  put('generadores', g); render(); verGen(gid); revisarAlarma();
-  toast(rid ? 'Registro modificado' : 'Registro diario guardado');
+  put('generadores', g); canecasDeReg(g, r, cant); render(); verGen(gid); revisarAlarma();
+  toast((rid ? 'Registro modificado' : 'Registro diario guardado') + (cant!==null ? ` · ${cant} caneca(s) de reserva` : ''));
 }
 function borrarReg(gid, rid){
   if(!confirm('¿Borrar este registro del historial?')) return;
   const g = Object.assign({}, state.generadores.find(x=>x.id===gid));
   g.historial = hist(g).filter(x=>x.id!==rid); g.actualizado = Date.now(); recalc(g);
-  put('generadores', g); render(); verGen(gid); revisarAlarma(); toast('Registro borrado');
+  put('generadores', g); canecasDeReg(g, {id:rid}, null); render(); verGen(gid); revisarAlarma(); toast('Registro borrado');
 }
 function usoHTML(g){
   const d = usoPorDia(g), h0 = hoy(), mes = h0.slice(0,8)+'01';
@@ -1193,7 +1224,7 @@ const filaGen = g => ({'Piazza':g.piazza,'Bloque':g.bloque||'','Sector':g.ubicac
   'Estado aceite':g.aceite||'','Estado batería':g.bateria||'','Refrigerante':g.refrigerante||'','Estado':g.estado||'',
   'Alerta':!tieneNivel(g)?'SIN REGISTRO':num(g.nivel)<UMBRAL?'ABASTECER':'OK','Último registro':g.ultimoRegistro||''});
 const filaReg = (g,r) => ({'Piazza':g.piazza,'Sector':g.ubicacion,'Fecha':fFecha(r.fecha),'Hora':r.hora,'Nivel (%)':num(r.nivel),
-  'Galones':Math.round(num(g.capacidad)*num(r.nivel))/100,'Horómetro':r.horometro?fmtHor(r.horometro):'','Encendido':usoRegistros(g)[r.id]!==undefined?fmtHM(usoRegistros(g)[r.id]):'','Aceite':r.aceite||'','Batería':r.bateria||'',
+  'Galones':Math.round(num(g.capacidad)*num(r.nivel))/100,'Horómetro':r.horometro?fmtHor(r.horometro):'','Encendido':usoRegistros(g)[r.id]!==undefined?fmtHM(usoRegistros(g)[r.id]):'','Canecas reserva':r.canecas??'','Aceite':r.aceite||'','Batería':r.bateria||'',
   'Refrigerante':r.refrigerante||'','Estado':r.estado||'','Responsable':r.responsable||'','Observación':r.nota||''});
 function hoja(rows){ const ws = XLSX.utils.json_to_sheet(rows); if(rows.length) ws['!cols']=Object.keys(rows[0]).map(k=>({wch:Math.max(11,k.length+2)})); return ws; }
 const filaRec = i => ({'Fecha':fFecha(i.fecha),'Hora':i.hora,'Centro':i.centro,'Tanque':i.tanque||'','Galones':num(i.galones),
