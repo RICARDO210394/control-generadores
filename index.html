@@ -375,9 +375,11 @@ async function initFirebase(){
     db = firebase.firestore(); try{ db.settings({ignoreUndefinedProperties:true, merge:true}); }catch(e){}
     try{ await aplicarSeedFirebase(); }catch(e){ console.error(e); }
     $('estado').textContent = '🟢 En línea';
+    const listos = new Set();
     COLS.forEach(c => db.collection(c).onSnapshot(snap => {
       state[c] = snap.docs.map(d => d.data());
       guardarLocal(); render(); revisarAlarma();
+      if(!listos.has(c)){ listos.add(c); if(listos.size===COLS.length) setTimeout(()=>{ const n = sincronizarReservas(); if(n) toast(`${n} salida(s) sumadas a la reserva de su Piazza`); }, 1500); }
     }));
   }catch(e){ $('estado').textContent = '🟠 Sin conexión (local)'; console.error(e); }
 }
@@ -1396,6 +1398,10 @@ function prevReparto(){
   const r = repartir(c, tid, gal);
   if(!r){ box.innerHTML = `<span style="color:var(--rojo);font-weight:700">No alcanza: el centro solo tiene ${fmt(c.galones)} gal en total.</span>`; return; }
   box.innerHTML = r.partes.length>1 ? `⚠ El tanque elegido no alcanza, se descontará así: ${r.partes.map(p=>`<b>${esc(p.nombre.split(' · ')[0])}: ${fmt(p.galones)} gal</b>`).join(' + ')}` : `Se descontarán ${fmt(gal)} gal del ${esc(r.partes[0].nombre.split(' · ')[0])}`;
+  const dst = $('dDest') ? $('dDest').value : '', gc = galCanDe(dst);
+  box.innerHTML += `<br>🛢 = <b>${fmt(Math.round(gal/gc*100)/100)} caneca(s)</b> de ${fmt(gc)} gal`;
+  const old = window._despEdit;
+  if(old && num(old.galones) !== gal) box.innerHTML += `<br><span style="color:${gal<num(old.galones)?'var(--verde)':'var(--rojo)'};font-weight:700">Antes eran ${fmt(old.galones)} gal: ${gal<num(old.galones)?`se devolverán ${fmt(num(old.galones)-gal)} gal al tanque`:`se descontarán ${fmt(gal-num(old.galones))} gal más del tanque`} y la reserva del destino se corrige.</span>`;
 }
 function tanqueHTML(t, i, cid){
   const u = ultRecarga(cid, t.id);
@@ -1474,12 +1480,12 @@ function renderCD(){
       <button class="btn rojo sm" onclick="pdfDespachos()">📄 Exportar PDF</button>
       <button class="btn sec sm" onclick="imprimirListado()">🖨 Imprimir</button>
     </div>
-    <div class="tw"><table><tr><th>N°</th><th>Fecha</th><th>Hora</th><th>Sale de</th><th>Se dirige a</th><th class="n">Galones</th><th>Despacha</th><th>Traslada</th><th>Asist. supervisora</th><th>Líder entrega</th><th>Líder recibe</th><th>Tanque</th><th>Generador destino</th><th></th></tr>
-    ${ds.length ? ds.map(d=>`<tr><td>${esc(d.numero)}</td><td>${fFecha(d.fecha)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.destino)}</td><td class="n"><b>${fmt(d.galones)}</b></td>
+    <div class="tw"><table><tr><th>N°</th><th>Fecha</th><th>Hora</th><th>Sale de</th><th>Se dirige a</th><th class="n">Galones</th><th class="n">Canecas</th><th>Reserva</th><th>Despacha</th><th>Traslada</th><th>Asist. supervisora</th><th>Líder entrega</th><th>Líder recibe</th><th>Tanque</th><th>Generador destino</th><th></th></tr>
+    ${ds.length ? ds.map(d=>`<tr><td>${esc(d.numero)}</td><td>${fFecha(d.fecha)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.destino)}</td><td class="n"><b>${fmt(d.galones)}</b></td><td class="n">${canDesp(d)}</td><td>${enReserva(d)?'<span class="chip" style="background:#efebe9;color:#6d4c41">🛢 Sí</span>':'<span style="color:var(--sub)">—</span>'}</td>
       <td>${esc(d.despacha)}</td><td>${esc(d.traslada)}</td><td>${esc(d.asistente)}</td><td>${esc(d.liderEntrega)}</td><td>${esc(d.liderRecibe)}</td><td>${esc(d.tanque||'')}</td><td>${esc(d.generador||'')}${d.nivelGenerador?`<br><small style="color:var(--verde)">${esc(d.nivelGenerador)}</small>`:''}</td>
       <td><button class="btn sec sm" title="Imprimir" onclick="imprimirDespacho('${d.id}')">🖨</button> <button class="btn sec sm" title="PDF" onclick="pdfDespacho('${d.id}')">📄</button> <button class="btn sec sm" title="Modificar" onclick="formDespacho('${d.centroId}','${d.id}')">✏</button> <button class="btn sec sm" title="Eliminar" onclick="eliminarDespacho('${d.id}')">🗑</button></td></tr>`).join('')
-      + `<tr><td colspan="5"><b>TOTAL</b></td><td class="n"><b>${fmt(ds.reduce((s,d)=>s+num(d.galones),0))}</b></td><td colspan="8"></td></tr>`
-      : '<tr><td colspan="14" style="text-align:center;color:var(--sub)">Sin registros</td></tr>'}</table></div></details>`;
+      + `<tr><td colspan="5"><b>TOTAL</b></td><td class="n"><b>${fmt(ds.reduce((s,d)=>s+num(d.galones),0))}</b></td><td class="n"><b>${fmt(ds.reduce((s,d)=>s+num(d.galones)/galCanDe(d.destino),0))}</b></td><td colspan="9"></td></tr>`
+      : '<tr><td colspan="16" style="text-align:center;color:var(--sub)">Sin registros</td></tr>'}</table></div></details>`;
 
   h += `<details class="panel despl" ${abierto.rec?'open':''} ontoggle="abierto.rec=this.open"><summary><h3>⛽ Recargas de los tanques de distribución <span class="cnt">${ing.length} · ${fmt(ing.reduce((s,i)=>s+num(i.galones),0))} gal</span></h3></summary>
     <div class="filtros" style="margin-top:8px">
@@ -1686,6 +1692,34 @@ function guardarAbast(gid){
     reg('desp-'+d.id, `Abastecido ${fmt(gal)} gal · Salida ${d.numero} desde ${d.origen}${obs?' · '+obs:''}`);
   }
   cerrar(); render(); revisarAlarma(); toast(`Generador abastecido: ${base!==null?base+'% → ':''}${n}%`);
+}
+/* Canecas equivalentes de una salida y si está sumada a la reserva del destino */
+const galCanDe = p => num(resDe(PIAZZAS.includes(p)?p:'_').galCaneca) || 5;
+const canDesp = d => fmt(Math.round(num(d.galones)/galCanDe(d.destino)*100)/100);
+const enReserva = d => PIAZZAS.includes(d.destino) && (resDe(d.destino).movs||[]).some(m=>m.id==='desp-'+d.id);
+/* Suma a la reserva (canecas) de la Piazza destino las salidas que aún no estén sumadas.
+   No toca las que fueron a un generador ni los abastecimientos directos. Se puede ejecutar varias veces sin duplicar. */
+/* Todas las canecas son de 5 galones: corrige reservas guardadas con otra medida */
+function fijarCanecas5(){
+  state.reservas.filter(r => num(r.galCaneca) !== 5).forEach(r0 => {
+    const r = JSON.parse(JSON.stringify(r0)); r.galCaneca = 5;
+    (r.movs||[]).forEach(m => { if(num(m.galones) > 0) m.cantidad = Math.round(num(m.galones)/5*100)/100; });
+    put('reservas', r);
+  });
+}
+function sincronizarReservas(){
+  fijarCanecas5();
+  const pend = state.despachos.filter(d => PIAZZAS.includes(d.destino) && !d.generadorId && !d.abast && !enReserva(d));
+  if(!pend.length) return 0;
+  const porP = {};
+  pend.forEach(d => (porP[d.destino] = porP[d.destino] || []).push(d));
+  Object.entries(porP).forEach(([p, L]) => {
+    const r = JSON.parse(JSON.stringify(resDe(p))); r.movs = r.movs||[];
+    L.forEach(d => r.movs.push({id:'desp-'+d.id, tipo:'Ingreso', cantidad: Math.round(num(d.galones)/num(r.galCaneca)*100)/100, galones:num(d.galones), fecha:d.fecha, hora:d.hora,
+      generadorId:'', generador:'', responsable:d.liderRecibe||d.traslada||'', obs:`Salida ${d.numero} desde ${d.origen}`, despachoId:d.id, t:d.creado||Date.now()}));
+    put('reservas', r);
+  });
+  render(); return pend.length;
 }
 function sigNumero(){
   const m = state.despachos.reduce((x,d)=>Math.max(x, parseInt(String(d.numero).replace(/\D/g,''))||0),0);
@@ -1922,7 +1956,7 @@ async function aplicarSeedFirebase(){
 }
 
 /* ===== Inicio ===== */
-cargarLocal(); if(!FIREBASE_CONFIG.apiKey){ silencio = true; aplicarSeedLocal(); aplicarSeedCentros(); aplicarSeedReservas(); silencio = false; } pintarUsuario(); render(); revisarAlarma(); initFirebase(); if(!usuario) pedirUsuario();
+cargarLocal(); if(!FIREBASE_CONFIG.apiKey){ silencio = true; aplicarSeedLocal(); aplicarSeedCentros(); aplicarSeedReservas(); silencio = false; } pintarUsuario(); if(!FIREBASE_CONFIG.apiKey) sincronizarReservas(); render(); revisarAlarma(); initFirebase(); if(!usuario) pedirUsuario();
 </script>
 </body>
 </html>
