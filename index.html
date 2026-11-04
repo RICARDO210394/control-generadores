@@ -513,7 +513,8 @@ function renderPiazza(p){
       :`<div class="gauge"><span>Sin registro de nivel</span></div><div class="gal"><span>Cap. ${fmt(g.capacidad)} gal</span><span></span></div>`}
       <div class="gal"><span>⏱ Horómetro: <b>${fmtHor(g.horometro)}</b></span><span>${chip('estado',g.estado)}</span></div>
       <div class="gal"><span>🔋 Hoy: ${minChip(ud[hoy()]??0)}</span><span>Ayer: ${minChip(ud[ayer]??0)}</span></div>
-      ${pr.length?`<div class="mpend" style="background:#ffe5e5;color:#b00020">🔴 ${esc(pr[0])}${pr.length>1?` (+${pr.length-1})`:''}</div>`:''}
+      ${pr.length?`<div class="mpend" style="background:#ffe5e5;color:#b00020">🔴 ${esc(pr[0])}${pr.length>1?` (+${pr.length-1})`:''}
+        ${mantPend(g).length?`<br><button class="btn sm" style="margin-top:5px;background:var(--verde);padding:3px 10px" onclick="event.stopPropagation();resolverMant('${g.id}')">✔ Marcar como solucionado</button>`:''}</div>`:''}
       ${regHoy?'<div class="okreg">✔ Registro de hoy realizado</div>':'<div class="sinreg">⏳ Pendiente registro de hoy</div>'}
       <button class="btn sm" style="width:100%;margin-top:6px;background:#e65100" onclick="event.stopPropagation();formAbastecer('${g.id}')">⛽ Abastecer generador</button></div>
     </div>`;
@@ -1114,8 +1115,19 @@ function mantHTML(g){
     ${ms.length ? ms.map(m=>`<tr><td>${fFecha(m.fecha)} ${esc(m.hora||'')}</td><td>${chipC(m.tipo, TIPOS_MANT[m.tipo]||'#5d6b7e')}</td><td><b>${esc(m.pieza)}</b></td>
       <td style="white-space:normal;min-width:200px">${esc(m.descripcion)}${m.obs?`<br><small style="color:var(--sub)">${esc(m.obs)}</small>`:''}</td><td>${esc(m.tecnico||'')}</td>
       <td>${chipC(m.estado, ESTADOS_MANT[m.estado]||'#5d6b7e')}</td><td>${m.fechaSol?fFecha(m.fechaSol):''}</td>
-      <td><button class="btn sec sm" title="Modificar" onclick="formMant('${g.id}','${m.id}')">✏</button> <button class="btn sec sm" title="Borrar" onclick="borrarMant('${g.id}','${m.id}')">🗑</button></td></tr>`).join('')
+      <td>${m.estado!=='Resuelto'?`<button class="btn sm" style="background:var(--verde)" title="Marcar como solucionado" onclick="resolverMant('${g.id}','${m.id}')">✔ Solucionado</button> `:''}<button class="btn sec sm" title="Modificar" onclick="formMant('${g.id}','${m.id}')">✏</button> <button class="btn sec sm" title="Borrar" onclick="borrarMant('${g.id}','${m.id}')">🗑</button></td></tr>`).join('')
       : '<tr><td colspan="8" style="text-align:center;color:var(--sub)">Sin mantenimientos ni problemas registrados</td></tr>'}</table></div></div>`;
+}
+/* Marca un problema/mantenimiento como Resuelto (sin mid: los pendientes del generador, preguntando uno por uno) */
+function resolverMant(gid, mid){
+  const g0 = state.generadores.find(x=>x.id===gid); if(!g0) return;
+  const pend = mid ? (g0.mant||[]).filter(m=>m.id===mid) : mantPend(g0);
+  const ids = pend.filter(m => confirm(`¿Marcar como SOLUCIONADO?\n\n${m.tipo} — ${m.pieza}: ${m.descripcion}`)).map(m=>m.id);
+  if(!ids.length) return;
+  const g = JSON.parse(JSON.stringify(g0));
+  g.mant = (g.mant||[]).map(m => ids.includes(m.id) ? {...m, estado:'Resuelto', fechaSol: hoy(), obs: [m.obs, `Solucionado ${fFecha(hoy())} ${ahora()}${usuario?' · '+usuario:''}`].filter(Boolean).join(' · ')} : m);
+  put('generadores', g); render(); if($('ov').classList.contains('on') && $('tituloGen')) verGen(gid); revisarAlarma();
+  toast(`${ids.length} novedad(es) marcada(s) como solucionada(s)`);
 }
 function formMant(gid, mid){
   const g = state.generadores.find(x=>x.id===gid), m = mid ? (g.mant||[]).find(x=>x.id===mid) : {fecha:hoy(), hora:ahora(), tipo:'Problema / falla', estado:'Pendiente'};
