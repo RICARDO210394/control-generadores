@@ -495,7 +495,7 @@ function recalc(g){
 function renderPiazza(p){
   const gens = state.generadores.filter(g => g.piazza===p).sort((a,b)=>((a.bloque||'')+a.ubicacion).localeCompare((b.bloque||'')+b.ubicacion));
   const tot = gens.reduce((s,g)=>s+galRest(g),0), cap = gens.reduce((s,g)=>s+num(g.capacidad),0);
-  let h = `<div class="top"><div><h2>Piazza ${esc(p)}</h2><div class="res">${gens.length} generador(es) · quedan ${fmt(tot)} de ${fmt(cap)} galones ${esCD(p)?'':`· 🛢 ${canecasDe(p).n} caneca(s) de reserva`}</div></div>
+  let h = `<div class="top"><div><h2>Piazza ${esc(p)}</h2><div class="res">${gens.length} generador(es) · quedan ${fmt(tot)} de ${fmt(cap)} galones ${`· 🛢 ${canecasDe(p).n} caneca(s) de reserva`}</div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${gens.length?`<button class="btn sec" onclick="excelGeneradores('${p}')">📊 Excel</button>`:''}
     <button class="btn" onclick="formGen()">+ Agregar generador</button></div></div>`;
   if(!gens.length) h += `<div class="grid" style="margin-bottom:14px">${extrasHTML(p)}</div><div class="vacio">No hay generadores registrados en esta Piazza.<br><br><button class="btn" onclick="formGen()">+ Agregar generador</button></div>`;
@@ -533,7 +533,7 @@ function canecasDe(p){
 function canecasHTML(p){
   const {r, n, gal, movs} = canecasDe(p), col = n<=0?'var(--rojo)':n<=2?'#f59e0b':'#6d4c41';
   return `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 ${esCD(p)?'Canecas del Centro de Distribución':'Canecas de reserva'} · ${esc(p)}</h3>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${esCD(p)?`<button class="btn sm" style="background:#6d4c41" onclick="formCaneca('${p}','Trasvase')">⛽ Llenar desde tanque</button>`:''}<button class="btn verde sm" onclick="formCaneca('${p}','Ingreso')">+ Ingreso de canecas</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${esCD(p)?`<button class="btn sm" style="background:#6d4c41" onclick="formCaneca('${p}','Trasvase')">⛽ Llenar desde tanque</button>`:''}<button class="btn verde sm" onclick="formCaneca('${p}','Ingreso')">+ Ingreso de canecas</button><button class="btn sm" style="background:#1565c0" onclick="formTraslado('${p}')">🚚 Trasladar a otra Piazza</button>
     <button class="btn rojo sm" onclick="formCaneca('${p}','Uso')">− Usar canecas</button><button class="btn sec sm" onclick="formCaneca('${p}','Conteo')">🔢 Conteo físico</button>
     <button class="btn sec sm" onclick="formGalCaneca('${p}')">⚙ Galones por caneca</button></div></div>
     <div class="canecas"><div><div class="cn" style="color:${col}">${n}</div><div class="res">caneca(s) en reserva</div></div>
@@ -541,10 +541,10 @@ function canecasHTML(p){
       <div class="ic">${n>0?'<span>🛢</span>'.repeat(Math.min(n,40))+(n>40?` +${n-40}`:''):'<span style="font-size:13px;color:var(--rojo);font-weight:700">⚠ Sin canecas de reserva</span>'}</div></div>
     <details style="margin-top:10px"${movs.length?'':' open'}><summary style="cursor:pointer;font-weight:700;font-size:13px">Historial de canecas (${movs.length})</summary>
     <div class="tw" style="max-height:260px;overflow-y:auto;margin-top:6px"><table><tr><th>Fecha</th><th>Hora</th><th>Movimiento</th><th class="n">Canecas</th><th class="n">Saldo</th><th>Generador</th><th>Responsable</th><th>Observación</th><th></th></tr>
-    ${movs.length?movs.map(m=>`<tr><td>${fFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${m.despachoId?`⬇ ${esc(m.obs)} (+${fmt(m.galones)} gal)`:m.tipo==='Ingreso'?'⬇ Ingreso':m.tipo==='Uso'?'⬆ Uso':m.tipo==='Trasvase'?`⛽ Desde ${esc(m.tanque||'tanque')} (−${fmt(m.galones)} gal)`:'🔢 Conteo'}</td>
+    ${movs.length?movs.map(m=>`<tr><td>${fFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${m.traslado?(m.tipo==='Uso'?`🚚 Traslado a ${esc(m.traslado.destino)}`:`🚚 Traslado desde ${esc(m.traslado.origen)}`):m.despachoId?`⬇ ${esc(m.obs)} (+${fmt(m.galones)} gal)`:m.tipo==='Ingreso'?'⬇ Ingreso':m.tipo==='Uso'?'⬆ Uso':m.tipo==='Trasvase'?`⛽ Desde ${esc(m.tanque||'tanque')} (−${fmt(m.galones)} gal)`:'🔢 Conteo'}</td>
       <td class="n"><b style="color:${m.tipo==='Ingreso'||m.tipo==='Trasvase'?'var(--verde)':m.tipo==='Uso'?'var(--rojo)':'inherit'}">${m.tipo==='Ingreso'||m.tipo==='Trasvase'?'+':m.tipo==='Uso'?'−':'='}${num(m.cantidad)}</b></td><td class="n">${m._saldo}</td>
       <td>${esc(m.generador||'')}${m.nivelGenerador?`<br><small style="color:var(--verde)">${esc(m.nivelGenerador)}</small>`:''}</td><td>${esc(m.responsable||'')}</td><td>${esc(m.obs||'')}</td>
-      <td>${m.despachoId?'<span style="font-size:11px;color:var(--sub)" title="Se modifica desde la salida del Centro de Distribución">desde salida</span>':`<button class="btn sec sm" onclick="formCaneca('${p}','${m.tipo}','${m.id}')">✏</button> <button class="btn sec sm" onclick="borrarCaneca('${p}','${m.id}')">🗑</button>`}</td></tr>`).join('')
+      <td>${m.traslado?`<button class="btn sec sm" title="Borra el traslado en las dos Piazzas" onclick="borrarTraslado('${m.traslado.id}')">🗑</button>`:m.despachoId?'<span style="font-size:11px;color:var(--sub)" title="Se modifica desde la salida del Centro de Distribución">desde salida</span>':`<button class="btn sec sm" onclick="formCaneca('${p}','${m.tipo}','${m.id}')">✏</button> <button class="btn sec sm" onclick="borrarCaneca('${p}','${m.id}')">🗑</button>`}</td></tr>`).join('')
       :'<tr><td colspan="9" style="text-align:center;color:var(--sub)">Sin movimientos. Use <b>🔢 Conteo físico</b> para registrar cuántas canecas hay ahora.</td></tr>'}</table></div></details></div>`;
 }
 function formCaneca(p, tipo, mid){
@@ -610,6 +610,38 @@ function quitarCargaCaneca(mid){
   const id = 'can-'+mid, g0 = state.generadores.find(g=>hist(g).some(x=>x.id===id)); if(!g0) return;
   const g = JSON.parse(JSON.stringify(g0)); g.historial = hist(g).filter(x=>x.id!==id); if(!g.historial.length) delete g.nivel; else recalc(g); put('generadores', g);
 }
+/* ===== Traslado de canecas entre Piazzas ===== */
+function formTraslado(p){
+  const r = canecasDe(p);
+  abrir(`<h3>🚚 Trasladar canecas · desde ${esc(p)}</h3><div class="res" style="margin-bottom:8px">Disponibles: <b>${fmt(r.n)}</b> caneca(s) · ${fmt(r.gal)} gal (${fmt(r.r.galCaneca)} gal c/u)</div>
+    <div class="fm">
+      <label class="full">Piazza destino *<select id="trD">${PIAZZAS.filter(x=>x!==p).map(x=>`<option>${x}</option>`).join('')}</select></label>
+      <label>Cantidad de canecas *<input id="trC" type="number" min="1" step="1" oninput="$('trPrev').innerHTML=num(this.value)>0?'Salen <b>'+fmt(num(this.value)*${num(r.r.galCaneca)})+' gal</b>':''"></label>
+      <label>Responsable<input id="trR" value="${esc(usuario)}"></label>
+      <label>Fecha<input id="trF" type="date" value="${hoy()}"></label><label>Hora<input id="trH" type="time" value="${ahora()}"></label>
+      <label class="full">Observación<input id="trO"></label><div class="full" id="trPrev" style="font-size:13px"></div>
+    </div><div class="err" id="fErr"></div>
+    <div class="acciones"><button class="btn sec" onclick="verCanecas('${p}')">Cancelar</button><button class="btn" style="background:#1565c0" onclick="guardarTraslado('${p}')">🚚 Trasladar</button></div>`);
+}
+function guardarTraslado(p){
+  const dest = $('trD').value, cant = Math.round(num($('trC').value)), o = canecasDe(p);
+  if(cant<=0){ $('fErr').textContent='Ingrese la cantidad de canecas.'; return; }
+  if(cant > o.n){ $('fErr').textContent=`Solo hay ${fmt(o.n)} caneca(s) en ${p}.`; return; }
+  const ro = JSON.parse(JSON.stringify(resDe(p))), rd = JSON.parse(JSON.stringify(resDe(dest))); ro.movs = ro.movs||[]; rd.movs = rd.movs||[];
+  const gal = cant*num(ro.galCaneca), id = uid(), fecha = $('trF').value||hoy(), hora = $('trH').value||ahora(), resp = $('trR').value.trim(), obs = $('trO').value.trim(), t = Date.now();
+  const tr = {id, origen:p, destino:dest, galones:gal};
+  ro.movs.push({id:'tras-'+id+'-o', tipo:'Uso', cantidad:cant, galones:gal, fecha, hora, generadorId:'', generador:'', responsable:resp, obs: obs||`Traslado a ${dest}`, traslado:tr, t});
+  rd.movs.push({id:'tras-'+id+'-d', tipo:'Ingreso', cantidad: Math.round(gal/num(rd.galCaneca)*100)/100, galones:gal, fecha, hora, generadorId:'', generador:'', responsable:resp, obs: obs||`Traslado desde ${p}`, traslado:tr, t});
+  put('reservas', ro); put('reservas', rd);
+  render(); verCanecas(p); toast(`${cant} caneca(s) trasladadas de ${p} a ${dest}`);
+}
+function borrarTraslado(id){
+  const rs = state.reservas.filter(r=>(r.movs||[]).some(m=>m.traslado&&m.traslado.id===id)); if(!rs.length) return;
+  const tr = rs[0].movs.find(m=>m.traslado&&m.traslado.id===id).traslado;
+  if(!confirm(`¿Borrar el traslado de ${fmt(tr.galones)} gal de ${tr.origen} a ${tr.destino}? Se corrige en las dos Piazzas.`)) return;
+  rs.forEach(r0 => { const r = JSON.parse(JSON.stringify(r0)); r.movs = r.movs.filter(m=>!(m.traslado&&m.traslado.id===id)); put('reservas', r); });
+  render(); verCanecas(tr.origen);
+}
 function formGalCaneca(p){
   const r = resDe(p);
   abrir(`<h3>⚙ Galones por caneca · ${esc(p)}</h3><div class="fm"><label>Capacidad de cada caneca (galones)<input id="cGal" type="number" min="0.1" step="0.1" value="${esc(r.galCaneca)}"></label></div>
@@ -618,8 +650,8 @@ function formGalCaneca(p){
 function extrasHTML(p){
   const c = canecasDe(p), col = c.n<=0?'var(--rojo)':c.n<=2?'#f59e0b':'#6d4c41';
   const ds = state.despachos.filter(d=>d.destino===p).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora)), tot = ds.reduce((s,d)=>s+num(d.galones),0);
-  return `${esCD(p)?'':`<div class="gen extra" onclick="verCanecas('${p}')">${c.n<=0?'<div class="tag">⚠ SIN RESERVA</div>':''}
-      <div><div class="ic">🛢</div><div class="tt">Reserva</div><div class="ub">Canecas de reserva</div></div>
+  return `${`<div class="gen extra" onclick="verCanecas('${p}')">${c.n<=0?'<div class="tag">⚠ SIN RESERVA</div>':''}
+      <div><div class="ic">🛢</div><div class="tt">Reserva</div><div class="ub">${esCD(p)?'Canecas del centro':'Canecas de reserva'}</div></div>
       <div><div class="big" style="color:${col}">${c.n} <span style="font-size:15px;font-weight:600">caneca(s)</span></div>
       <div class="gal"><span>Total <b>${fmt(c.gal)} gal</b></span><span>${fmt(c.r.galCaneca)} gal c/u</span></div>
       <div class="gal"><span>${c.movs[0]?`Último: ${fFecha(c.movs[0].fecha)} · ${esc(c.movs[0].tipo)} ${num(c.movs[0].cantidad)}`:'Sin movimientos'}</span><span></span></div>
@@ -738,7 +770,7 @@ function datosReporte(f){
   return {f, gens, sal, rec, cs, nov,
     k:{total:gens.length, conReg:gens.filter(g=>g.regDia.length).length, bajos:gens.filter(g=>tieneNivel(g)&&num(g.nivel)<UMBRAL).length,
        galGen:gens.reduce((s,g)=>s+galRest(g),0), capGen:gens.reduce((s,g)=>s+num(g.capacidad),0),
-       galCD:cs.reduce((s,c)=>s+num(c.galones),0), capCD:cs.reduce((s,c)=>s+capCentro(c),0),
+       galCD:totalesCD(cs).tot, canCD:totalesCD(cs).can, capCD:cs.reduce((s,c)=>s+capCentro(c),0),
        salidas:sal.reduce((s,d)=>s+num(d.galones),0), recargas:rec.reduce((s,i)=>s+num(i.galones),0)}};
 }
 function renderReporte(){
@@ -753,7 +785,7 @@ function renderReporte(){
     ${kpi('Generadores registrados hoy', `${k.conReg} / ${k.total}`, k.total-k.conReg?`${k.total-k.conReg} pendientes`:'Todos registrados', k.conReg===k.total?'#2e7d32':'#f59e0b')}
     ${kpi('Por abastecer (<80%)', k.bajos, k.bajos?'Requieren combustible':'Ninguno', k.bajos?'#c62828':'#2e7d32')}
     ${kpi('Combustible en generadores', fmt(k.galGen)+' gal', `de ${fmt(k.capGen)} gal de capacidad`)}
-    ${kpi('Combustible almacenado', fmt(k.galCD)+' gal', `de ${fmt(k.capCD)} gal en centros`, '#1e88e5')}
+    ${kpi('Combustible almacenado', fmt(k.galCD)+' gal', `tanques ${fmt(k.galCD-k.canCD)}/${fmt(k.capCD)} + canecas ${fmt(k.canCD)}`, '#1e88e5')}
     ${kpi('Despachado en el día', fmt(k.salidas)+' gal', `${R.sal.length} salida(s)`, '#c62828')}
     ${kpi('Recargado en el día', fmt(k.recargas)+' gal', `${R.rec.length} recarga(s)`, '#2e7d32')}
   </div>`;
@@ -767,10 +799,10 @@ function renderReporte(){
       <td>${esc(r?.responsable||'')}</td><td style="white-space:normal;min-width:140px;max-width:260px;font-size:11px">${esc(obsDia(g))}</td></tr>`; }).join('')}</tbody>
     </table></div></div>`;
   h += `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 Combustible almacenado en Centros de Distribución <span style="font-weight:400;font-size:12px;color:var(--sub)">(saldo actual)</span></h3>
-    <div><b style="font-size:20px;color:var(--azul2)">${fmt(k.galCD)}</b> <span class="res">de ${fmt(k.capCD)} gal en total</span></div></div>
+    <div><b style="font-size:20px;color:var(--azul2)">${fmt(k.galCD)} gal</b> <span class="res">tanques ${fmt(k.galCD-k.canCD)} / ${fmt(k.capCD)} + canecas ${fmt(k.canCD)}</span></div></div>
     ${leyendaMat()}<div class="grid gridcd">${R.cs.map(c=>`<div class="centro">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
-      <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(capCentro(c))} gal disponibles</div>${canTot(c)}</div></div>
+      <div style="text-align:right"><div class="big">${fmt(totCentro(c))}</div><div style="font-size:12px;color:var(--sub)">gal disponibles</div>${canTot(c)}</div></div>
       <div class="tqs">${tqs(c).map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div>${canFila(c)}</div>`).join('')}</div></div>`;
   h += `<div class="panel"><h3>⬆ Salidas de combustible del día</h3><div class="tw"><table><tr><th>N°</th><th>Hora</th><th>Sale de</th><th>Tanque</th><th>Destino</th><th>Generador</th><th class="n">Galones</th><th>Nivel generador</th><th>Traslada</th><th>Recibe</th></tr>
     ${R.sal.length?R.sal.map(d=>`<tr><td>${esc(d.numero)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.tanque||'')}</td><td>${esc(d.destino)}</td><td>${esc(d.generador||'')}</td><td class="n"><b>${fmt(d.galones)}</b></td><td>${esc(d.nivelGenerador||'')}</td><td>${esc(d.traslada||'')}</td><td>${esc(d.liderRecibe||'')}</td></tr>`).join('')+`<tr><td colspan="6"><b>TOTAL</b></td><td class="n"><b>${fmt(k.salidas)}</b></td><td colspan="3"></td></tr>`:'<tr><td colspan="10" style="text-align:center;color:var(--sub)">Sin salidas</td></tr>'}</table></div></div>`;
@@ -799,7 +831,7 @@ function filasReporte(R){
   return {
     resumen:[{'Indicador':'Fecha del reporte','Valor':fFecha(R.f)},{'Indicador':'Generadores con registro del día','Valor':`${R.k.conReg} de ${R.k.total}`},
       {'Indicador':'Generadores por abastecer (<80%)','Valor':R.k.bajos},{'Indicador':'Combustible en generadores (gal)','Valor':Math.round(R.k.galGen*100)/100},
-      {'Indicador':'Capacidad total generadores (gal)','Valor':R.k.capGen},{'Indicador':'Combustible almacenado en centros (gal)','Valor':R.k.galCD},
+      {'Indicador':'Capacidad total generadores (gal)','Valor':R.k.capGen},{'Indicador':'Combustible almacenado en centros (gal) · tanques + canecas','Valor':R.k.galCD},{'Indicador':'· En tanques (gal)','Valor':R.k.galCD-R.k.canCD},{'Indicador':'· En canecas del centro (gal)','Valor':R.k.canCD},
       {'Indicador':'Capacidad de almacenamiento (gal)','Valor':R.k.capCD},{'Indicador':'Despachado en el día (gal)','Valor':R.k.salidas},{'Indicador':'Recargado en el día (gal)','Valor':R.k.recargas},
       {'Indicador':'Generado','Valor':new Date().toLocaleString('es-EC')}],
     gens:R.gens.map(g=>{ const r=g.regDia[g.regDia.length-1]; return {'Piazza':g.piazza,'Bloque':g.bloque||'-','Ubicación':g.ubicacion,'Capacidad (gal)':num(g.capacidad),
@@ -1372,9 +1404,14 @@ function tanqueHTML(t, i, cid){
     <div class="tqcuerpo"><div class="tqlleno" style="height:${pct}%;background:${color(pct)}"></div><span>${Math.round(pct)}%</span></div>
     <div class="tqinfo"><b>Tanque ${i+1}</b><span style="font-size:15px;font-weight:800">${fmt(g)} <span style="font-weight:500;font-size:12px;color:var(--sub)">/ ${fmt(cap)} gal</span></span>${t.enUso===false?'<span class="sinuso">Sin uso</span>':''}</div></div>`;
 }
+/* Total del centro = tanques + canecas del centro (solo para mostrar; los tanques se manejan aparte) */
+const canCentro = c => { const pz = pzC(c); return pz ? canecasDe(pz) : {n:0, gal:0}; };
+const totCentro = c => num(c.galones) + canCentro(c).gal;
+function totalesCD(cs){ const pzs = [...new Set(cs.map(pzC).filter(Boolean))], tq = cs.reduce((s,c)=>s+num(c.galones),0), can = pzs.reduce((s,p)=>s+canecasDe(p).gal,0);
+  return {tq, can, tot: tq+can, cap: cs.reduce((s,c)=>s+capCentro(c),0)}; }
 function canTot(c){
-  const pz = pzC(c); if(!pz) return ''; const cn = canecasDe(pz); if(cn.n<=0) return '';
-  return `<div style="font-size:12px;color:#6d4c41;font-weight:700">+ 🛢 ${cn.n} canecas (${fmt(cn.gal)} gal)</div>`;
+  const cn = canCentro(c);
+  return `<div style="font-size:11px;color:var(--sub)">Tanques <b>${fmt(c.galones)}</b>/${fmt(capCentro(c))}${cn.n>0?` + 🛢 <b style="color:#6d4c41">${fmt(cn.gal)}</b> (${cn.n} can.)`:''}</div>`;
 }
 function canFila(c){
   const pz = pzC(c); if(!pz) return '';
@@ -1408,7 +1445,7 @@ function centroHTML(c){
   const t = tqs(c), cap = capCentro(c);
   return `<div class="centro">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
-    <div style="text-align:right"><div class="big">${fmt(c.galones)}</div><div style="font-size:12px;color:var(--sub)">de ${fmt(cap)} gal disponibles</div>${canTot(c)}</div></div>
+    <div style="text-align:right"><div class="big">${fmt(totCentro(c))}</div><div style="font-size:12px;color:var(--sub)">gal disponibles</div>${canTot(c)}</div></div>
     ${t.length?`<div class="tqs">${t.map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div>`:''}
     ${canFila(c)}
     ${c.obs?`<div class="nota" style="margin-top:8px">${esc(c.obs)}</div>`:''}
@@ -1420,7 +1457,7 @@ const leyendaMat = () => `<div class="leyenda">${Object.entries(MATERIALES).map(
 let filtro = {centro:'', desde:'', hasta:''}, abierto = {sal:false, rec:false};
 function renderCD(){
   const cs = state.centros.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  let h = `<div class="top"><div><h2>🏭 Centro de Distribución</h2><div class="res">${cs.length} centro(s) · Total disponible: ${fmt(cs.reduce((s,c)=>s+num(c.galones),0))} de ${fmt(cs.reduce((s,c)=>s+capCentro(c),0))} galones</div></div>
+  let h = `<div class="top"><div><h2>🏭 Centro de Distribución</h2><div class="res">${cs.length} centro(s) · Total disponible: <b>${fmt(totalesCD(cs).tot)} gal</b> (tanques ${fmt(totalesCD(cs).tq)} de ${fmt(totalesCD(cs).cap)} + canecas ${fmt(totalesCD(cs).can)})</div></div>
     <button class="btn" onclick="formCentro()">+ Agregar centro</button></div>${leyendaMat()}`;
   h += cs.length ? '<div class="grid gridcd">' + cs.map(centroHTML).join('') + '</div>'
     : `<div class="vacio">No hay centros de distribución. Agregue uno con el nombre o la Piazza y sus tanques.</div>`;
