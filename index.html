@@ -1566,7 +1566,8 @@ function formDespacho(cid, did){
       <input id="dOtro" placeholder="Especifique destino" value="${otro?v('destino'):''}" style="display:${otro?'block':'none'};margin-top:4px"></label>
     <div class="full" id="dGenBox"></div>
     ${selTanque(cv, true, d?d.tanqueId:'', 'prevReparto()')}
-    <label>Galones que retiran * <span style="font-weight:400">(total centro ${fmt(cv.galones)})</span><input id="dGal" type="number" min="0.1" step="0.1" value="${v('galones')}" oninput="prevGen();prevReparto()"></label>
+    <label>Canecas que retiran * <span style="font-weight:400">(de 5 gal · centro tiene ${fmt(cv.galones)} gal = ${fmt(Math.floor(num(cv.galones)/5))} can.)</span><input id="dCan" type="number" min="1" step="1" value="${d?Math.round(num(d.galones)/5*100)/100:''}" oninput="$('dGal').value=num(this.value)*5||'';prevGen();prevReparto()"></label>
+    <label>Galones (automático)<input id="dGal" type="number" readonly tabindex="-1" style="background:#eef2f7;font-weight:800" value="${v('galones')}"></label>
     <div class="full quedan" id="dRep" style="margin:0;text-align:left"></div>
     <label>Fecha<input id="dFecha" type="date" value="${d?v('fecha'):hoy()}"></label>
     <label>Hora<input id="dHora" type="time" value="${d?v('hora'):ahora()}"></label>
@@ -1740,7 +1741,7 @@ function guardarDespacho(cid, imprimir, did){
   let dest = $('dDest').value; if(dest==='__o') dest=$('dOtro').value.trim();
   const gal = num($('dGal').value), tid = $('xTq') ? $('xTq').value : '', t = tqs(c0).find(x=>x.id===tid);
   const f = {despacha:$('dDesp').value.trim(), traslada:$('dTras').value.trim()};
-  if(!dest || gal<=0 || !f.despacha || !f.traslada){ $('fErr').textContent='Complete destino, galones, quién despacha y quién traslada.'; return; }
+  if(!dest || gal<=0 || !f.despacha || !f.traslada){ $('fErr').textContent='Complete destino, canecas, quién despacha y quién traslada.'; return; }
   const rep = repartir(c0, tid, gal);
   if(!rep){ $('fErr').textContent=`No hay suficiente combustible en el centro. Disponible en total: ${fmt(c0.galones)} gal.`; return; }
   const gen = genActual(), act = gen && $('dAct').checked, base = gen ? nivelBase(gen) : null;
