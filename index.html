@@ -1049,7 +1049,7 @@ function verGen(id){
   <div style="margin-top:8px"><b style="font-size:11px;color:var(--sub)">FOTO FICHA TÉCNICA</b>${g.foto?`<div class="fotoprev"><img src="${g.foto}" onclick="verImg(this.src)"></div>`:'<div style="color:var(--sub);font-size:13px">Sin foto cargada</div>'}</div>
   </details>
   <div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">📅 Registro diario / Historial (${h.length})</h3>
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" style="background:#e65100" onclick="formAbastecer('${g.id}')">⛽ Abastecer</button><button class="btn sm" style="background:#6a1b9a" onclick="informeGen('${g.id}')">📑 Informe</button><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" style="background:#e65100" onclick="formAbastecer('${g.id}')">⛽ Abastecer</button><button class="btn sm" style="background:#6a1b9a" onclick="informeGen('${g.id}')">📑 Informe</button><button class="btn rojo sm" onclick="formEliminarRegs('${g.id}')">🗑 Eliminar</button><button class="btn verde sm" onclick="formReg('${g.id}')">+ Nuevo registro diario</button>
     ${h.length?`<button class="btn sec sm" onclick="excelHist('${g.id}')">📊 Excel</button><button class="btn sec sm" onclick="pdfHist('${g.id}')">📄 PDF</button>`:''}</div></div>
     <div class="tw" style="max-height:360px;overflow-y:auto"><table><tr><th>Fecha</th><th>Hora</th><th class="n">Nivel</th><th class="n">Galones</th><th class="n">Horómetro</th><th class="n">Encendido</th><th class="n">Canecas</th><th>Aceite</th><th>Batería</th><th>Refrigerante</th><th>Estado</th><th>Responsable</th><th>Observación</th><th></th></tr>
     ${h.length ? h.map(r=>`<tr class="${['aceite','bateria','refrigerante','estado'].some(k=>MALOS.includes(r[k]))?'mal':''}"><td>${fFecha(r.fecha)}</td><td>${esc(r.hora)}</td><td class="n" style="color:${color(r.nivel)};font-weight:700">${num(r.nivel)}%</td>
@@ -1122,6 +1122,51 @@ function guardarReg(gid, rid){
   g.historial = h; g.actualizado = Date.now(); recalc(g);
   put('generadores', g); canecasDeReg(g, r, cant); render(); verGen(gid); revisarAlarma();
   toast((rid ? 'Registro modificado' : 'Registro diario guardado') + (cant!==null ? ` · ${cant} caneca(s) de reserva` : ''));
+}
+/* ===== Eliminar registros diarios por rango de fechas y Piazzas ===== */
+function formEliminarRegs(gid){
+  const g = state.generadores.find(x=>x.id===gid), p0 = g ? g.piazza : '';
+  abrir(`<h3>🗑 Eliminar registros diarios</h3>
+    <div class="fm">
+      <label>Desde *<input id="elD" type="date" value="${hoy()}" onchange="prevEliminar()"></label>
+      <label>Hasta *<input id="elH" type="date" value="${hoy()}" onchange="prevEliminar()"></label>
+      <div class="full"><b style="font-size:12px;color:var(--sub)">PIAZZAS *</b>
+        <label style="display:inline-flex;flex-direction:row;align-items:center;gap:6px;margin-left:10px;font-weight:700"><input type="checkbox" id="elTodas" style="width:auto;flex:none;margin:0" onchange="document.querySelectorAll('.elP').forEach(x=>x.checked=this.checked);prevEliminar()"> Todas</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:6px">${PIAZZAS.map(x=>`<label style="display:flex;flex-direction:row;align-items:center;justify-content:flex-start;text-align:left;gap:8px;background:#f3f6fa;border-radius:8px;padding:6px 8px;color:var(--txt);font-weight:600"><input type="checkbox" class="elP" style="width:auto;flex:none;margin:0" value="${esc(x)}" ${x===p0?'checked':''} onchange="prevEliminar()"> ${esc(x)}</label>`).join('')}</div></div>
+      <div class="full" id="elPrev" style="font-size:13px"></div>
+    </div><div class="err" id="fErr"></div>
+    <div class="nota">Solo se borran <b>registros diarios</b>. Los abastecimientos y salidas de combustible no se tocan (se borran desde su propio lugar para que los galones vuelvan a su origen).</div>
+    <div class="acciones"><button class="btn sec" onclick="${g?`verGen('${gid}')`:'cerrar()'}">Cancelar</button><button class="btn rojo" onclick="eliminarRegs()">🗑 Eliminar</button></div>`);
+  prevEliminar();
+}
+function regsAEliminar(){
+  const d1 = $('elD').value, d2 = $('elH').value, ps = [...document.querySelectorAll('.elP:checked')].map(x=>x.value);
+  const L = [];
+  state.generadores.filter(g=>ps.includes(g.piazza)).forEach(g => hist(g).filter(r=>!esCarga(r) && r.fecha>=d1 && r.fecha<=d2).forEach(r => L.push({g, r})));
+  return {d1, d2, ps, L};
+}
+function prevEliminar(){
+  const {d1, d2, ps, L} = regsAEliminar(), t = $('elTodas'); if(t) t.checked = ps.length===PIAZZAS.length;
+  if(!d1 || !d2 || d1>d2){ $('elPrev').innerHTML = '<span style="color:var(--rojo)">Revise las fechas: "Desde" debe ser antes o igual a "Hasta".</span>'; return; }
+  if(!ps.length){ $('elPrev').innerHTML = '<span style="color:var(--rojo)">Elija al menos una Piazza.</span>'; return; }
+  const porP = {}; L.forEach(x => porP[x.g.piazza] = (porP[x.g.piazza]||0)+1);
+  $('elPrev').innerHTML = L.length ? `Se eliminarán <b style="color:var(--rojo)">${L.length} registro(s)</b> del ${fFecha(d1)} al ${fFecha(d2)}:<br>${Object.entries(porP).map(([p,n])=>`${esc(p)}: <b>${n}</b>`).join(' · ')}`
+    : `<span style="color:var(--sub)">No hay registros diarios en ese rango para las Piazzas elegidas.</span>`;
+}
+function eliminarRegs(){
+  const {d1, d2, ps, L} = regsAEliminar();
+  if(!d1 || !d2 || d1>d2){ $('fErr').textContent='Revise las fechas.'; return; }
+  if(!ps.length){ $('fErr').textContent='Elija al menos una Piazza.'; return; }
+  if(!L.length){ $('fErr').textContent='No hay registros para eliminar.'; return; }
+  if(!confirm(`¿Eliminar ${L.length} registro(s) diario(s) del ${fFecha(d1)} al ${fFecha(d2)} en: ${ps.join(', ')}?\n\nEsta acción no se puede deshacer.`)) return;
+  const porG = {}; L.forEach(({g, r}) => (porG[g.id] = porG[g.id] || []).push(r.id));
+  Object.entries(porG).forEach(([gid, ids]) => {
+    const g = Object.assign({}, state.generadores.find(x=>x.id===gid));
+    g.historial = hist(g).filter(x=>!ids.includes(x.id)); g.actualizado = Date.now(); recalc(g);
+    put('generadores', g); ids.forEach(rid => canecasDeReg(g, {id:rid}, null));
+  });
+  bitacora('Borró', 'Registro diario', `Eliminación masiva: ${L.length} registro(s) del ${fFecha(d1)} al ${fFecha(d2)} · ${ps.join(', ')}`);
+  cerrar(); render(); revisarAlarma(); toast(`${L.length} registro(s) eliminado(s)`);
 }
 function borrarReg(gid, rid){
   if(!confirm('¿Borrar este registro del historial?')) return;
