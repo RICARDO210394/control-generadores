@@ -1066,10 +1066,11 @@ function formReg(gid, rid){
   const r = rid ? hist(g).find(x=>x.id===rid) : {fecha:hoy(), hora:ahora(), nivel:num(g.nivel)||100, horometro:'', aceite:g.aceite, bateria:g.bateria, refrigerante:g.refrigerante, estado:g.estado};
   abrir(`<h3>${rid?'Modificar':'Nuevo'} registro diario · ${esc(g.ubicacion)}</h3>
   <div class="fm">
-    <label>Fecha<input id="rFecha" type="date" value="${esc(r.fecha)}"></label>
-    <label>Hora<input id="rHora" type="time" value="${esc(r.hora)}"></label>
+    <label>Fecha<input id="rFecha" type="date" value="${esc(r.fecha)}" onchange="regFechaCambio('${gid}','${rid||''}')"></label>
+    <label>Hora<input id="rHora" type="time" value="${esc(r.hora)}" onchange="regFechaCambio('${gid}','${rid||''}')"></label>
+    <div class="full" id="rPasado" style="display:none;background:#fff8e1;color:#8d6e00;border-radius:8px;padding:6px 10px;font-size:12px"></div>
     <div class="full"><div class="sep" style="margin-bottom:6px">Nivel de combustible</div>${sliderHTML(num(r.nivel)||1, g.capacidad)}</div>
-    <label>Horómetro (horas y minutos) <span style="font-weight:400">· último: ${fmtHor(g.horometro)}</span>${horInput('rHor', r.horometro)}</label>
+    <label>Horómetro (horas y minutos) <span style="font-weight:400" id="rHorUlt">· último: ${fmtHor(g.horometro)}</span>${horInput('rHor', r.horometro)}</label>
     <label>Estado del aceite${selHTML('rAce','aceite',r.aceite)}</label>
     <label>Estado de la batería${selHTML('rBat','bateria',r.bateria)}</label>
     <label>Refrigerante${selHTML('rRef','refrigerante',r.refrigerante)}</label>
@@ -1078,20 +1079,48 @@ function formReg(gid, rid){
     <div class="full"><div class="sep" style="margin:4px 0 6px">🛢 Canecas de reserva · Piazza ${esc(g.piazza)}</div>
       ${(()=>{ const c = canecasDe(g.piazza), gc = num(c.r.galCaneca), v = r.canecas ?? (rid ? '' : c.n);
         return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
-          <label>Canecas en reserva (conteo de hoy)<input id="rCan" type="number" min="0" step="1" value="${esc(v)}" placeholder="Ej.: 18" oninput="prevCanReg(${gc},${c.n})"></label>
+          <label>Canecas en reserva (conteo de ese día)<input id="rCan" type="number" min="0" step="1" value="${esc(v)}" placeholder="Ej.: 18" oninput="prevCanReg(${gc},window._canBase??${c.n})"></label>
           <div id="rCanPrev" style="font-size:13px;padding-bottom:10px"></div></div>
-          <div style="margin-top:4px;font-size:12px;color:var(--sub)">Ahora hay <b>${fmt(c.n)}</b> caneca(s) · ${fmt(c.gal)} gal (${fmt(gc)} gal c/u). Si el número cambia, se guarda como conteo físico en el historial de canecas.</div>`; })()}
+          <div id="rCanInfo" style="margin-top:4px;font-size:12px;color:var(--sub)">Ahora hay <b>${fmt(c.n)}</b> caneca(s) · ${fmt(c.gal)} gal (${fmt(gc)} gal c/u). Si el número cambia, se guarda como conteo físico en el historial de canecas.</div>`; })()}
     </div>
     <label class="full">Observación<input id="rNota" value="${esc(r.nota||'')}" placeholder="Ej.: abastecido 20 gal, prueba en vacío, etc."></label>
   </div><div class="err" id="fErr"></div>
   <div class="acciones"><button class="btn sec" onclick="verGen('${gid}')">Cancelar</button><button class="btn verde" onclick="guardarReg('${gid}','${rid||''}')">💾 Guardar registro</button></div>`);
   onNivel(); const c0 = canecasDe(g.piazza); prevCanReg(num(c0.r.galCaneca), c0.n);
+  window._regPrimera = true; regFechaCambio(gid, rid||''); window._regPrimera = false;
+}
+/* Saldo de canecas de una Piazza a una fecha/hora (sin contar el conteo del registro que se edita) */
+function canecasAl(p, fecha, hora, sinId){
+  const r = resDe(p), lim = fecha + (hora||'23:59');
+  const movs = (r.movs||[]).filter(m => m.id!==sinId && (m.fecha+(m.hora||'00:00')) <= lim)
+    .sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora) || (a.t||0)-(b.t||0));
+  let n = 0; movs.forEach(m => { const c = num(m.cantidad); n = Math.round((m.tipo==='Conteo' ? c : (m.tipo==='Ingreso'||m.tipo==='Trasvase') ? n+c : n-c)*100)/100; });
+  return {n, gal: n*num(r.galCaneca), gc: num(r.galCaneca)};
+}
+/* Al cambiar la fecha del registro: canecas, nivel y horómetro según lo que había en ESA fecha */
+function regFechaCambio(gid, rid){
+  const g = state.generadores.find(x=>x.id===gid); if(!g) return;
+  const f = $('rFecha').value, h = $('rHora').value || '23:59'; if(!f) return;
+  const pasado = f < hoy(), c = canecasAl(g.piazza, f, h, rid ? 'reg-'+rid : null);
+  window._canBase = c.n;
+  const ant = hist(g).filter(x => x.id!==rid && (x.fecha+x.hora) <= (f+h)), ultR = ant[ant.length-1];
+  const ultHor = [...ant].reverse().find(x => horMin(x.horometro)!==null);
+  $('rCanInfo').innerHTML = `${pasado?`Al <b>${fFecha(f)}</b> había`:'Ahora hay'} <b>${fmt(c.n)}</b> caneca(s) · ${fmt(c.gal)} gal (${fmt(c.gc)} gal c/u). Si el número cambia, se guarda como conteo físico en el historial de canecas.`;
+  $('rHorUlt').textContent = `· último${pasado?' a esa fecha':''}: ${ultHor ? fmtHor(ultHor.horometro) : '—'}`;
+  if(!rid){
+    $('rCan').value = c.n;
+    if(ultR && !window._regPrimera){ $('fNivel').value = num(ultR.nivel)||1; onNivel(); }
+    else if(ultR && pasado){ $('fNivel').value = num(ultR.nivel)||1; onNivel(); }
+  }
+  prevCanReg(c.gc, c.n);
+  const box = $('rPasado'); box.style.display = pasado ? 'block' : 'none';
+  if(pasado) box.innerHTML = `📅 Registro de una fecha pasada: se muestran las canecas${ultR?' y el nivel':''} que había el <b>${fFecha(f)}</b>${ultR?` (último registro: ${fFecha(ultR.fecha)} ${esc(ultR.hora)}, ${num(ultR.nivel)}%)`:''}. Lo que se abasteció después no se cuenta.`;
 }
 function prevCanReg(gc, n0){
   const el = $('rCan'), out = $('rCanPrev'); if(!el || !out) return;
   if(el.value===''){ out.innerHTML = '<span style="color:var(--sub)">Sin conteo de canecas en este registro</span>'; return; }
   const n = Math.max(0, Math.round(num(el.value))), d = n - n0;
-  out.innerHTML = `= <b>${fmt(n*gc)} gal</b> en reserva` + (d ? ` · <b style="color:${d<0?'var(--rojo)':'#2e7d32'}">${d>0?'+':''}${fmt(d)} caneca(s)</b> vs. el saldo actual` : ' · <span style="color:#2e7d32">igual al saldo actual</span>');
+  out.innerHTML = `= <b>${fmt(n*gc)} gal</b> en reserva` + (d ? ` · <b style="color:${d<0?'var(--rojo)':'#2e7d32'}">${d>0?'+':''}${fmt(d)} caneca(s)</b> vs. el saldo de esa fecha` : ' · <span style="color:#2e7d32">igual al saldo de esa fecha</span>');
 }
 /* Conteo de canecas ligado a un registro diario (se crea, actualiza o borra junto con el registro) */
 function canecasDeReg(g, r, cant){
@@ -1099,7 +1128,7 @@ function canecasDeReg(g, r, cant){
   const res = JSON.parse(JSON.stringify(resDe(p))); res.movs = res.movs||[];
   const id = 'reg-'+r.id, i = res.movs.findIndex(x=>x.id===id);
   if(cant===null){ if(i>=0){ res.movs.splice(i,1); put('reservas', res); } return; }
-  if(i<0){ const sinEste = canecasDe(p).n; if(sinEste===cant) return; }
+  if(i<0){ const sinEste = canecasAl(p, r.fecha, r.hora, id).n; if(sinEste===cant) return; }
   const m = {id, tipo:'Conteo', cantidad:cant, fecha:r.fecha, hora:r.hora, generadorId:g.id, generador:genNombre(g), responsable:r.responsable, obs:'Conteo en registro diario', t: i>=0 ? (res.movs[i].t||Date.now()) : Date.now()};
   if(i>=0) res.movs[i]=m; else res.movs.push(m);
   put('reservas', res);
