@@ -1385,7 +1385,7 @@ function pintarInforme(){
   $('infBox').innerHTML = `<h3 style="padding-right:30px">📑 Informe por generador</h3>
   <div class="filtros"><label>Generador<select onchange="infG.gid=this.value;pintarInforme()">${gs.map(x=>`<option value="${x.id}" ${x.id===g.id?'selected':''}>${esc(x.piazza)} · ${esc(genNombre(x))}</option>`).join('')}</select></label>
     <label>Desde<input type="date" value="${D.d1}" onchange="infG.desde=this.value;pintarInforme()"></label><label>Hasta<input type="date" value="${D.d2}" onchange="infG.hasta=this.value;pintarInforme()"></label>
-    <button class="btn rojo sm" onclick="pdfInforme()">📄 PDF</button><button class="btn verde sm" onclick="excelInforme()">📊 Excel</button></div>
+    <button class="btn rojo sm" onclick="pdfInforme()">📄 PDF</button><button class="btn sm" style="background:#37474f" onclick="verMemo()">📝 Memorándum</button><button class="btn verde sm" onclick="excelInforme()">📊 Excel</button></div>
   <div class="kpis" style="margin-bottom:10px">
     <div class="kpi"><div class="kt">Nivel actual</div><div class="kv" style="color:${color(num(g.nivel))}">${tieneNivel(g)?num(g.nivel)+'%':'—'}</div><div class="ks">${fmt(galRest(g))} de ${fmt(g.capacidad)} gal</div></div>
     <div class="kpi" style="border-top-color:#e65100"><div class="kt">Abastecimientos</div><div class="kv">${D.ab.length}</div><div class="ks">${fmt(D.galAb)} gal en total</div></div>
@@ -1414,6 +1414,77 @@ function excelInforme(){
   const D = datosInforme(), F = filasInforme(D), wb = XLSX.utils.book_new();
   [['Resumen',F.resumen],['Abastecimientos',F.ab],['Novedades',F.nov],['Horas encendido',F.horas],['Registros diarios',F.regs]].forEach(([n,r])=>XLSX.utils.book_append_sheet(wb, hoja(r.length?r:[{'Sin datos':''}]), n));
   XLSX.writeFile(wb, `Informe_${D.g.piazza}_${genNombre(D.g)}_${D.d1}_${D.d2}.xlsx`.replace(/[^\p{L}\p{N}.\-]+/gu,'_'));
+}
+/* ===== Memorándum en texto del informe por generador ===== */
+function datosMemo(D){
+  const g = D.g, cap = num(g.capacidad), H = hist(g), ini = D.d1+' 00:00', fin = D.d2+' 23:59';
+  const k = r => r.fecha+' '+(r.hora||'00:00');
+  const antes = H.filter(r => k(r) < ini), dentro = H.filter(r => k(r) >= ini && k(r) <= fin);
+  const rIni = antes.length ? antes[antes.length-1] : dentro[0], rFin = dentro.length ? dentro[dentro.length-1] : rIni;
+  const pIni = rIni ? num(rIni.nivel) : null, pFin = rFin ? num(rFin.nivel) : null;
+  const gIni = pIni===null ? 0 : cap*pIni/100, gFin = pFin===null ? 0 : cap*pFin/100;
+  const consumo = Math.max(0, gIni + D.galAb - gFin), horas = D.horas/60;
+  const gph = horas > 0 ? consumo/horas : null, auto = gph ? cap/gph : null;
+  return {g, cap, rIni, rFin, pIni, pFin, gIni, gFin, consumo, horas, gph, auto, can: D.galAb/5, canCons: consumo/5};
+}
+const r2 = n => fmt(Math.round(n*100)/100);
+function textoMemo(D){
+  const M = datosMemo(D), g = M.g, F = d => fFecha(d);
+  const L = [];
+  L.push('MEMORÁNDUM');
+  L.push('');
+  L.push(`Fecha: ${F(hoy())}`);
+  L.push(`Asunto: Reporte de consumo y funcionamiento del generador`);
+  L.push(`Generador: ${g.piazza} · ${genNombre(g)}`);
+  L.push(`Periodo del reporte: del ${F(D.d1)} al ${F(D.d2)}`);
+  L.push('');
+  L.push(`Por medio del presente se informa que, desde el ${F(D.d1)} hasta el ${F(D.d2)}, el generador ubicado en ${genNombre(g)} de la Piazza ${g.piazza} estuvo encendido un total de ${fmtHM(D.horas)} (según el horómetro), en ${D.dias.filter(d=>D.upd[d]>0).length} día(s) con funcionamiento.`);
+  L.push('');
+  L.push(`En ese periodo se realizaron ${D.ab.length} abastecimiento(s), con un total de ${r2(M.can)} caneca(s) de combustible, equivalentes a ${r2(D.galAb)} galones.`);
+  L.push('');
+  L.push(`Al inicio del periodo el tanque del generador (capacidad ${r2(M.cap)} gal) se encontraba al ${M.pIni??'—'}% (${r2(M.gIni)} gal)${M.rIni?` según el registro del ${F(M.rIni.fecha)} ${M.rIni.hora}`:''}, y al final quedó al ${M.pFin??'—'}% (${r2(M.gFin)} gal)${M.rFin?` según el último registro del ${F(M.rFin.fecha)} ${M.rFin.hora}`:''}.`);
+  L.push(`Por lo tanto, el combustible consumido fue de ${r2(M.consumo)} galones (${r2(M.canCons)} canecas): ${r2(M.gIni)} gal al inicio + ${r2(D.galAb)} gal abastecidos - ${r2(M.gFin)} gal que quedaron en el tanque.`);
+  L.push('');
+  if(M.gph) L.push(`Con ${fmtHM(D.horas)} de funcionamiento, el consumo promedio fue de ${r2(M.gph)} galones por hora. Con ese consumo, la autonomía del generador con el tanque lleno (${r2(M.cap)} gal) es de aproximadamente ${r2(M.auto)} horas${M.pFin!==null?`, y con el nivel actual (${M.pFin}%) de aproximadamente ${r2(M.gFin/M.gph)} horas`:''}.`);
+  else L.push('No se registraron horas de encendido en el periodo, por lo que no es posible calcular el consumo por hora ni la autonomía.');
+  if(D.nov.length){ L.push(''); L.push(`Novedades del periodo: ${D.nov.map(n=>`${F(n.fecha)} ${n.tipo}: ${n.det}`).join('; ')}.`); }
+  else { L.push(''); L.push('No se registraron novedades en el periodo.'); }
+  L.push('');
+  L.push('Atentamente,');
+  L.push('');
+  L.push('Att. Ricardo Bohórquez');
+  return L.join('\n');
+}
+function verMemo(){
+  const D = datosInforme(); if(!D) return;
+  const t = textoMemo(D);
+  abrir(`<h3>📝 Memorándum · ${esc(D.g.piazza)} · ${esc(genNombre(D.g))}</h3>
+    <textarea id="memoTxt" style="width:100%;min-height:420px;font-family:inherit;font-size:14px;line-height:1.5;padding:12px;border:1px solid var(--borde);border-radius:8px">${esc(t)}</textarea>
+    <div class="nota">Puede corregir el texto antes de copiarlo o descargarlo.</div>
+    <div class="acciones"><button class="btn sec" onclick="informeGen()">← Volver al informe</button>
+      <button class="btn sec" onclick="navigator.clipboard.writeText($('memoTxt').value).then(()=>toast('Texto copiado'))">📋 Copiar</button>
+      <button class="btn" style="background:#1565c0" onclick="wordMemo()">📄 Word</button>
+      <button class="btn rojo" onclick="pdfMemo()">📄 PDF</button></div>`, true);
+}
+function pdfMemo(){
+  if(!window.jspdf) return toast('No se pudo cargar el generador de PDF');
+  const D = datosInforme(), t = $('memoTxt').value, { jsPDF } = window.jspdf, doc = new jsPDF();
+  const lines = t.split('\n'); let y = 22;
+  lines.forEach((ln, i) => {
+    if(i===0){ doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text(ln, 105, y, {align:'center'}); y += 10; doc.setFont('helvetica','normal'); doc.setFontSize(11); return; }
+    if(!ln.trim()){ y += 4; return; }
+    const bold = /^(Fecha|Asunto|Generador|Periodo del reporte):/.test(ln) || /^Att\./.test(ln);
+    doc.setFont('helvetica', bold?'bold':'normal');
+    doc.splitTextToSize(ln, 176).forEach(x => { if(y > 280){ doc.addPage(); y = 20; } doc.text(x, 17, y); y += 6; });
+  });
+  doc.save(`Memorandum_${D.g.piazza}_${genNombre(D.g)}_${D.d1}_${D.d2}.pdf`.replace(/[^\p{L}\p{N}.\-]+/gu,'_'));
+}
+function wordMemo(){
+  const D = datosInforme(), t = $('memoTxt').value.split('\n');
+  const body = t.map((ln,i)=> i===0 ? `<h2 style="text-align:center">${esc(ln)}</h2>` : ln.trim() ? `<p style="margin:0 0 6pt">${/^(Fecha|Asunto|Generador|Periodo del reporte):|^Att\./.test(ln)?`<b>${esc(ln)}</b>`:esc(ln)}</p>` : '<p>&nbsp;</p>').join('');
+  const html = `<html><head><meta charset="utf-8"></head><body style="font-family:Arial;font-size:11pt">${body}</body></html>`;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff'+html], {type:'application/msword'}));
+  a.download = `Memorandum_${D.g.piazza}_${genNombre(D.g)}_${D.d1}_${D.d2}.doc`.replace(/[^\p{L}\p{N}.\-]+/gu,'_'); a.click();
 }
 function pdfInforme(){
   if(!window.jspdf) return toast('No se pudo cargar el generador de PDF');
