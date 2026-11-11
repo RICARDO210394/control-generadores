@@ -1429,6 +1429,19 @@ function datosMemo(D){
 }
 /* Nombre completo de la plaza (Murano es "Murano Plaza", las demás son "Piazza …") */
 const nomPz = p => p==='Murano' ? 'Murano Plaza' : 'Piazza '+p;
+/* Movimiento de la reserva de canecas en un periodo: inicial + recibidas - final = usadas */
+function reservaMemo(p, d1, d2){
+  const r = resDe(p), ini = canecasAl(p, diaAntes(d1), '23:59').n, fin = canecasAl(p, d2, '23:59').n;
+  const rec = (r.movs||[]).filter(m => (m.tipo==='Ingreso'||m.tipo==='Trasvase') && m.fecha>=d1 && m.fecha<=d2).reduce((s,m)=>s+num(m.cantidad),0);
+  const lleg = (r.movs||[]).filter(m => (m.tipo==='Ingreso'||m.tipo==='Trasvase') && m.fecha>=d1 && m.fecha<=d2)
+    .sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).map(m => {
+      const d = m.despachoId && state.despachos.find(x=>x.id===m.despachoId);
+      const origen = m.traslado ? m.traslado.origen : d ? d.origen : m.tipo==='Trasvase' ? `${p} (tanque del centro)` : (String(m.obs||'').match(/desde (.+)$/)||[])[1] || 'ingreso manual';
+      const ref = m.traslado ? 'traslado de canecas' : d ? 'Salida '+d.numero : '';
+      return {fecha:m.fecha, hora:m.hora||'', can:num(m.cantidad), origen, ref};
+    });
+  return {ini, rec, fin, lleg, usadas: Math.max(0, ini + rec - fin)};
+}
 const r2 = n => fmt(Math.round(n*100)/100);
 function textoMemo(D){
   const M = datosMemo(D), g = M.g, F = d => fFecha(d);
@@ -1442,13 +1455,26 @@ function textoMemo(D){
   L.push('');
   L.push(`Por medio del presente se informa que, desde el ${F(D.d1)} hasta el ${F(D.d2)}, el generador ubicado en ${genNombre(g)} de ${nomPz(g.piazza)} estuvo encendido un total de ${fmtHM(D.horas)} (según el horómetro), en ${D.dias.filter(d=>D.upd[d]>0).length} día(s) con funcionamiento.`);
   L.push('');
-  L.push(`En ese periodo se realizaron ${D.ab.length} abastecimiento(s), con un total de ${r2(M.can)} caneca(s) de combustible, equivalentes a ${r2(D.galAb)} galones.`);
+  const R0 = reservaMemo(g.piazza, D.d1, D.d2);
+  L.push(`En ese periodo llegaron a ${nomPz(g.piazza)} ${r2(R0.rec)} caneca(s) de combustible (${r2(R0.rec*5)} galones). Al inicio había ${r2(R0.ini)} caneca(s) en reserva y al final quedaron ${r2(R0.fin)} caneca(s) en reserva (${r2(R0.fin*5)} galones), que se descuentan porque no se usaron. Es decir: ${r2(R0.ini)} + ${r2(R0.rec)} - ${r2(R0.fin)} = ${r2(R0.usadas)} caneca(s) salieron de la reserva.`);
+  L.push('');
+  L.push(`De esas, se pusieron en el generador ${r2(M.can)} caneca(s) en ${D.ab.length} abastecimiento(s), equivalentes a ${r2(D.galAb)} galones.${Math.abs(R0.usadas-M.can)>0.5?` (Diferencia de ${r2(R0.usadas-M.can)} caneca(s) entre lo que salió de la reserva y lo registrado en el generador; revisar conteos o traslados.)`:''}`);
   L.push('');
   L.push(`Al inicio del periodo el tanque del generador (capacidad ${r2(M.cap)} gal) se encontraba al ${M.pIni??'—'}% (${r2(M.gIni)} gal)${M.rIni?` según el registro del ${F(M.rIni.fecha)} ${M.rIni.hora}`:''}, y al final quedó al ${M.pFin??'—'}% (${r2(M.gFin)} gal)${M.rFin?` según el último registro del ${F(M.rFin.fecha)} ${M.rFin.hora}`:''}.`);
   L.push(`Por lo tanto, el combustible consumido fue de ${r2(M.consumo)} galones (${r2(M.canCons)} canecas): ${r2(M.gIni)} gal al inicio + ${r2(D.galAb)} gal abastecidos - ${r2(M.gFin)} gal que quedaron en el tanque.`);
   L.push('');
   if(M.gph) L.push(`Con ${fmtHM(D.horas)} de funcionamiento, el consumo promedio fue de ${r2(M.gph)} galones por hora. Con ese consumo, la autonomía del generador con el tanque lleno (${r2(M.cap)} gal) es de aproximadamente ${r2(M.auto)} horas${M.pFin!==null?`, y con el nivel actual (${M.pFin}%) de aproximadamente ${r2(M.gFin/M.gph)} horas`:''}.`);
   else L.push('No se registraron horas de encendido en el periodo, por lo que no es posible calcular el consumo por hora ni la autonomía.');
+  L.push('');
+  L.push('RESUMEN:');
+  L.push(`• Total que llegó como abastecimiento a ${nomPz(g.piazza)}: ${r2(R0.rec)} canecas (${r2(R0.rec*5)} galones)`);
+  L.push(`   - Reserva que ya tenía la plaza al inicio (${F(D.d1)}): ${r2(R0.ini)} canecas (${r2(R0.ini*5)} gal)`);
+  R0.lleg.forEach(x => L.push(`   - ${F(x.fecha)} ${x.hora} · ${r2(x.can)} canecas (${r2(x.can*5)} gal) desde ${x.origen}${x.ref?' ('+x.ref+')':''}`));
+  const porO = {}; R0.lleg.forEach(x => porO[x.origen] = (porO[x.origen]||0) + x.can);
+  L.push(`   Por origen: ${R0.ini?`Reserva de la plaza ${r2(R0.ini)} canecas (${r2(R0.ini*5)} gal) · `:''}${Object.entries(porO).map(([o,c])=>`${o} ${r2(c)} canecas (${r2(c*5)} gal)`).join(' · ')}`);
+  L.push(`• Total disponible en el periodo (reserva inicial + lo que llegó): ${r2(R0.ini+R0.rec)} canecas (${r2((R0.ini+R0.rec)*5)} galones)`);
+  L.push(`• Combustible consumido por el generador: ${r2(M.consumo)} galones (${r2(M.canCons)} canecas)`);
+  L.push(`• Canecas que quedaron de reserva: ${r2(R0.fin)} canecas (${r2(R0.fin*5)} galones)`);
   if(D.nov.length){ L.push(''); L.push(`Novedades del periodo: ${D.nov.map(n=>`${F(n.fecha)} ${n.tipo}: ${n.det}`).join('; ')}.`); }
   else { L.push(''); L.push('No se registraron novedades en el periodo.'); }
   L.push('');
@@ -1483,14 +1509,14 @@ function pdfMemo(){
 }
 function wordMemo(){
   const D = datosInforme(), t = $('memoTxt').value.split('\n');
-  const neg = /^(Fecha|Asunto|Generador|Periodo del reporte|Total abastecido|Total encendido):|^Att\.|^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA):/;
+  const neg = /^(Fecha|Asunto|Generador|Periodo del reporte|Total abastecido|Total encendido):|^Att\.|^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA|RESUMEN):/;
   const body = t.map((ln,i) => {
     const x = esc(ln).replace(/-&gt;/g,'→');
     if(i===0) return `<p class="tit">${x}</p>`;
     if(!ln.trim()) return '';
     if(/^\d+\.\s/.test(ln)) return `<p class="item">${x}</p>`;            // 1. 2. 3. … detalle de abastecimientos
     if(/^•/.test(ln)) return `<p class="item">${x}</p>`;                 // • horas por día
-    if(/^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA):/.test(ln)) return `<p class="sec">${x}</p>`;
+    if(/^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA|RESUMEN):/.test(ln)) return `<p class="sec">${x}</p>`;
     return `<p${neg.test(ln)?' class="neg"':''}>${x}</p>`;
   }).join('\n');
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
