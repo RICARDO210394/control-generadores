@@ -1495,9 +1495,33 @@ function pdfMemo(){
 }
 function wordMemo(){
   const D = datosInforme(), t = $('memoTxt').value.split('\n');
-  const body = t.map((ln,i)=> i===0 ? `<h2 style="text-align:center">${esc(ln)}</h2>` : ln.trim() ? `<p style="margin:0 0 6pt">${/^(Fecha|Asunto|Generador|Periodo del reporte|Total abastecido|Total encendido):|^Att\.|^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA):/.test(ln)?`<b>${esc(ln)}</b>`:esc(ln)}</p>` : '<p>&nbsp;</p>').join('');
-  const html = `<html><head><meta charset="utf-8"></head><body style="font-family:Arial;font-size:11pt">${body}</body></html>`;
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff'+html], {type:'application/msword'}));
+  const neg = /^(Fecha|Asunto|Generador|Periodo del reporte|Total abastecido|Total encendido):|^Att\.|^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA):/;
+  const body = t.map((ln,i) => {
+    const x = esc(ln).replace(/-&gt;/g,'→');
+    if(i===0) return `<p class="tit">${x}</p>`;
+    if(!ln.trim()) return '';
+    if(/^\d+\.\s/.test(ln)) return `<p class="item">${x}</p>`;            // 1. 2. 3. … detalle de abastecimientos
+    if(/^•/.test(ln)) return `<p class="item">${x}</p>`;                 // • horas por día
+    if(/^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA):/.test(ln)) return `<p class="sec">${x}</p>`;
+    return `<p${neg.test(ln)?' class="neg"':''}>${x}</p>`;
+  }).join('\n');
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Memorándum</title>
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>
+@page WordSection1{size:21cm 29.7cm;margin:2.5cm 2.2cm 2.5cm 2.2cm}
+div.WordSection1{page:WordSection1}
+body{font-family:Arial,sans-serif;font-size:12pt;color:#000}
+p{margin:0 0 9pt 0;line-height:125%;font-family:Arial,sans-serif;font-size:12pt}
+p.tit{text-align:center;font-size:16pt;font-weight:bold;margin:0 0 18pt 0}
+p.neg{font-weight:bold;margin:0 0 3pt 0}
+p.sec{font-weight:bold;margin:12pt 0 9pt 0}
+p.item{margin:0 0 9pt 0}
+</style></head>
+<body><div class="WordSection1">
+${body}
+</div></body></html>`;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿'+html], {type:'application/msword'}));
   a.download = `Memorandum_${D.g.piazza}_${genNombre(D.g)}_${D.d1}_${D.d2}.doc`.replace(/[^\p{L}\p{N}.\-]+/gu,'_'); a.click();
 }
 function pdfInforme(){
