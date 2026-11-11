@@ -504,7 +504,7 @@ function recalc(g){
 function renderPiazza(p){
   const gens = state.generadores.filter(g => g.piazza===p).sort((a,b)=>((a.bloque||'')+a.ubicacion).localeCompare((b.bloque||'')+b.ubicacion));
   const tot = gens.reduce((s,g)=>s+galRest(g),0), cap = gens.reduce((s,g)=>s+num(g.capacidad),0);
-  let h = `<div class="top"><div><h2>Piazza ${esc(p)}</h2><div class="res">${gens.length} generador(es) · quedan ${fmt(tot)} de ${fmt(cap)} galones ${`· 🛢 ${canecasDe(p).n} caneca(s) de reserva`}</div></div>
+  let h = `<div class="top"><div><h2>${esc(nomPz(p))}</h2><div class="res">${gens.length} generador(es) · quedan ${fmt(tot)} de ${fmt(cap)} galones ${`· 🛢 ${canecasDe(p).n} caneca(s) de reserva`}</div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${gens.length?`<button class="btn sec" onclick="excelGeneradores('${p}')">📊 Excel</button>`:''}
     <button class="btn" onclick="formGen()">+ Agregar generador</button></div></div>`;
   if(!gens.length) h += `<div class="grid" style="margin-bottom:14px">${extrasHTML(p)}</div><div class="vacio">No hay generadores registrados en esta Piazza.<br><br><button class="btn" onclick="formGen()">+ Agregar generador</button></div>`;
@@ -1076,7 +1076,7 @@ function formReg(gid, rid){
     <label>Refrigerante${selHTML('rRef','refrigerante',r.refrigerante)}</label>
     <label>Estado general${selHTML('rEst','estado',r.estado)}</label>
     <label>Responsable<input id="rResp" value="${esc(r.responsable||'')}"></label>
-    <div class="full"><div class="sep" style="margin:4px 0 6px">🛢 Canecas de reserva · Piazza ${esc(g.piazza)}</div>
+    <div class="full"><div class="sep" style="margin:4px 0 6px">🛢 Canecas de reserva · ${esc(nomPz(g.piazza))}</div>
       ${(()=>{ const c = canecasDe(g.piazza), gc = num(c.r.galCaneca), v = r.canecas ?? (rid ? '' : c.n);
         return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
           <label>Canecas en reserva (conteo de ese día)<input id="rCan" type="number" min="0" step="1" value="${esc(v)}" placeholder="Ej.: 18" oninput="prevCanReg(${gc},window._canBase??${c.n})"></label>
@@ -1427,6 +1427,8 @@ function datosMemo(D){
   const gph = horas > 0 ? consumo/horas : null, auto = gph ? cap/gph : null;
   return {g, cap, rIni, rFin, pIni, pFin, gIni, gFin, consumo, horas, gph, auto, can: D.galAb/5, canCons: consumo/5};
 }
+/* Nombre completo de la plaza (Murano es "Murano Plaza", las demás son "Piazza …") */
+const nomPz = p => p==='Murano' ? 'Murano Plaza' : 'Piazza '+p;
 const r2 = n => fmt(Math.round(n*100)/100);
 function textoMemo(D){
   const M = datosMemo(D), g = M.g, F = d => fFecha(d);
@@ -1438,10 +1440,22 @@ function textoMemo(D){
   L.push(`Generador: ${g.piazza} · ${genNombre(g)}`);
   L.push(`Periodo del reporte: del ${F(D.d1)} al ${F(D.d2)}`);
   L.push('');
-  L.push(`Por medio del presente se informa que, desde el ${F(D.d1)} hasta el ${F(D.d2)}, el generador ubicado en ${genNombre(g)} de la Piazza ${g.piazza} estuvo encendido un total de ${fmtHM(D.horas)} (según el horómetro), en ${D.dias.filter(d=>D.upd[d]>0).length} día(s) con funcionamiento.`);
+  L.push(`Por medio del presente se informa que, desde el ${F(D.d1)} hasta el ${F(D.d2)}, el generador ubicado en ${genNombre(g)} de ${nomPz(g.piazza)} estuvo encendido un total de ${fmtHM(D.horas)} (según el horómetro), en ${D.dias.filter(d=>D.upd[d]>0).length} día(s) con funcionamiento.`);
   L.push('');
   L.push(`En ese periodo se realizaron ${D.ab.length} abastecimiento(s), con un total de ${r2(M.can)} caneca(s) de combustible, equivalentes a ${r2(D.galAb)} galones.`);
   L.push('');
+  if(D.ab.length){
+    L.push('DETALLE DE ABASTECIMIENTOS:');
+    D.ab.forEach((x,i) => L.push(`${i+1}. ${F(x.fecha)} ${x.hora} · ${r2(x.galones)} gal (${r2(x.galones/5)} canecas) · ${x.origen} · Nivel ${String(x.nivel||'—').replace('→','->')}${x.resp?' · '+x.resp:''}${x.obs?' · '+x.obs:''}`));
+    L.push(`Total abastecido: ${r2(D.galAb)} gal (${r2(M.can)} canecas)`);
+    L.push('');
+  }
+  if(D.dias.length){
+    L.push('HORAS DE ENCENDIDO POR DÍA:');
+    D.dias.forEach(d => L.push(`• ${F(d)}: ${fmtHM(D.upd[d])}`));
+    L.push(`Total encendido: ${fmtHM(D.horas)}`);
+    L.push('');
+  }
   L.push(`Al inicio del periodo el tanque del generador (capacidad ${r2(M.cap)} gal) se encontraba al ${M.pIni??'—'}% (${r2(M.gIni)} gal)${M.rIni?` según el registro del ${F(M.rIni.fecha)} ${M.rIni.hora}`:''}, y al final quedó al ${M.pFin??'—'}% (${r2(M.gFin)} gal)${M.rFin?` según el último registro del ${F(M.rFin.fecha)} ${M.rFin.hora}`:''}.`);
   L.push(`Por lo tanto, el combustible consumido fue de ${r2(M.consumo)} galones (${r2(M.canCons)} canecas): ${r2(M.gIni)} gal al inicio + ${r2(D.galAb)} gal abastecidos - ${r2(M.gFin)} gal que quedaron en el tanque.`);
   L.push('');
@@ -1473,7 +1487,7 @@ function pdfMemo(){
   lines.forEach((ln, i) => {
     if(i===0){ doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text(ln, 105, y, {align:'center'}); y += 10; doc.setFont('helvetica','normal'); doc.setFontSize(11); return; }
     if(!ln.trim()){ y += 4; return; }
-    const bold = /^(Fecha|Asunto|Generador|Periodo del reporte):/.test(ln) || /^Att\./.test(ln);
+    const bold = /^(Fecha|Asunto|Generador|Periodo del reporte|Total abastecido|Total encendido):/.test(ln) || /^Att\./.test(ln) || /^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA):/.test(ln);
     doc.setFont('helvetica', bold?'bold':'normal');
     doc.splitTextToSize(ln, 176).forEach(x => { if(y > 280){ doc.addPage(); y = 20; } doc.text(x, 17, y); y += 6; });
   });
@@ -1481,7 +1495,7 @@ function pdfMemo(){
 }
 function wordMemo(){
   const D = datosInforme(), t = $('memoTxt').value.split('\n');
-  const body = t.map((ln,i)=> i===0 ? `<h2 style="text-align:center">${esc(ln)}</h2>` : ln.trim() ? `<p style="margin:0 0 6pt">${/^(Fecha|Asunto|Generador|Periodo del reporte):|^Att\./.test(ln)?`<b>${esc(ln)}</b>`:esc(ln)}</p>` : '<p>&nbsp;</p>').join('');
+  const body = t.map((ln,i)=> i===0 ? `<h2 style="text-align:center">${esc(ln)}</h2>` : ln.trim() ? `<p style="margin:0 0 6pt">${/^(Fecha|Asunto|Generador|Periodo del reporte|Total abastecido|Total encendido):|^Att\.|^(DETALLE DE ABASTECIMIENTOS|HORAS DE ENCENDIDO POR DÍA):/.test(ln)?`<b>${esc(ln)}</b>`:esc(ln)}</p>` : '<p>&nbsp;</p>').join('');
   const html = `<html><head><meta charset="utf-8"></head><body style="font-family:Arial;font-size:11pt">${body}</body></html>`;
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff'+html], {type:'application/msword'}));
   a.download = `Memorandum_${D.g.piazza}_${genNombre(D.g)}_${D.d1}_${D.d2}.doc`.replace(/[^\p{L}\p{N}.\-]+/gu,'_'); a.click();
@@ -1504,7 +1518,7 @@ function pdfInforme(){
 }
 function pdfHist(gid){
   const g = state.generadores.find(x=>x.id===gid), { jsPDF } = window.jspdf, doc = new jsPDF({orientation:'landscape'});
-  doc.setFontSize(14); doc.text(`HISTORIAL DEL GENERADOR · Piazza ${g.piazza}`, 148, 13, {align:'center'});
+  doc.setFontSize(14); doc.text(`HISTORIAL DEL GENERADOR · ${nomPz(g.piazza)}`, 148, 13, {align:'center'});
   doc.setFontSize(9);
   doc.text(`Sector: ${g.ubicacion}   Placa: ${g.placa||'—'}   Modelo: ${g.modelo||'—'}   Serial: ${g.serial||'—'}   Año: ${g.anio||'—'}   Power: ${g.power||'—'} kVA   KW: ${g.kw||'—'}   Fuel: ${g.fuel||'—'}`, 148, 19, {align:'center'});
   doc.text(`Capacidad: ${fmt(g.capacidad)} gal   Nivel actual: ${num(g.nivel)}%   Quedan: ${fmt(galRest(g))} gal   Horómetro: ${fmtHor(g.horometro)}   Generado: ${new Date().toLocaleString('es-EC')}`, 148, 24, {align:'center'});
