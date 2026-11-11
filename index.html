@@ -1444,18 +1444,6 @@ function textoMemo(D){
   L.push('');
   L.push(`En ese periodo se realizaron ${D.ab.length} abastecimiento(s), con un total de ${r2(M.can)} caneca(s) de combustible, equivalentes a ${r2(D.galAb)} galones.`);
   L.push('');
-  if(D.ab.length){
-    L.push('DETALLE DE ABASTECIMIENTOS:');
-    D.ab.forEach((x,i) => L.push(`${i+1}. ${F(x.fecha)} ${x.hora} · ${r2(x.galones)} gal (${r2(x.galones/5)} canecas) · ${x.origen} · Nivel ${String(x.nivel||'—').replace('→','->')}${x.resp?' · '+x.resp:''}${x.obs?' · '+x.obs:''}`));
-    L.push(`Total abastecido: ${r2(D.galAb)} gal (${r2(M.can)} canecas)`);
-    L.push('');
-  }
-  if(D.dias.length){
-    L.push('HORAS DE ENCENDIDO POR DÍA:');
-    D.dias.forEach(d => L.push(`• ${F(d)}: ${fmtHM(D.upd[d])}`));
-    L.push(`Total encendido: ${fmtHM(D.horas)}`);
-    L.push('');
-  }
   L.push(`Al inicio del periodo el tanque del generador (capacidad ${r2(M.cap)} gal) se encontraba al ${M.pIni??'—'}% (${r2(M.gIni)} gal)${M.rIni?` según el registro del ${F(M.rIni.fecha)} ${M.rIni.hora}`:''}, y al final quedó al ${M.pFin??'—'}% (${r2(M.gFin)} gal)${M.rFin?` según el último registro del ${F(M.rFin.fecha)} ${M.rFin.hora}`:''}.`);
   L.push(`Por lo tanto, el combustible consumido fue de ${r2(M.consumo)} galones (${r2(M.canCons)} canecas): ${r2(M.gIni)} gal al inicio + ${r2(D.galAb)} gal abastecidos - ${r2(M.gFin)} gal que quedaron en el tanque.`);
   L.push('');
