@@ -564,7 +564,8 @@ function formCaneca(p, tipo, mid){
     return `<option value="${c.id}|${t.id}" ${m.tanqueId===t.id?'selected':''}>${cen.length>1?esc(c.nombre)+' · ':''}Tanque ${i+1} — tiene ${fmt(g)} gal</option>`; })).join('');
   const gens = state.generadores.filter(g=>g.piazza===p);
   abrir(`<h3>${tit} · ${esc(p)}</h3><div class="fm">
-    <label>${tipo==='Conteo'?'Canecas contadas (total actual) *':tipo==='Trasvase'?'Canecas llenadas *':'Cantidad de canecas *'}<input id="cCant" type="number" min="0" step="1" value="${v('cantidad')}" ${tipo==='Trasvase'?`oninput="prevTrasvase('${p}','${mid||''}')"`:''}></label>
+    <label>${tipo==='Conteo'?'Canecas contadas (total actual) *':tipo==='Trasvase'?'Canecas llenadas *':'Cantidad de canecas *'}<input id="cCant" type="number" min="0" step="any" value="${v('cantidad')}" oninput="$('cGalI').value=this.value===''?'':Math.round(num(this.value)*${num(r.galCaneca)||5}*100)/100;${tipo==='Trasvase'?`prevTrasvase('${p}','${mid||''}')`:''}"></label>
+    <label>o Galones <span style="font-weight:400">(se convierte a canecas de ${fmt(num(r.galCaneca)||5)} gal)</span><input id="cGalI" type="number" min="0" step="any" value="${m.cantidad!==undefined?Math.round(num(m.cantidad)*(num(r.galCaneca)||5)*100)/100:''}" oninput="$('cCant').value=this.value===''?'':Math.round(num(this.value)/${num(r.galCaneca)||5}*100)/100;${tipo==='Trasvase'?`prevTrasvase('${p}','${mid||''}')`:''}"></label>
     ${tipo==='Trasvase'?`<label>Tanque del que sale el combustible *<select id="cTq" onchange="prevTrasvase('${p}','${mid||''}')">${opTq}</select></label>
       <div class="full" id="cPrev" style="grid-column:1/-1;font-size:13px"></div>`:''}
     ${tipo==='Uso'?`<label>Generador abastecido<select id="cGen"><option value="">—</option>${gens.map(g=>`<option value="${g.id}" ${m.generadorId===g.id?'selected':''}>${esc(genNombre(g))}</option>`).join('')}</select></label>`:''}
@@ -585,7 +586,7 @@ function guardarCaneca(p, tipo, mid){
   const c = $('cCant').value; if(c==='' || num(c)<0 || (tipo!=='Conteo' && num(c)<=0)) return toast('Ingrese la cantidad de canecas');
   const r = JSON.parse(JSON.stringify(resDe(p))); r.movs = r.movs||[];
   const gid = $('cGen')?.value || '', g = state.generadores.find(x=>x.id===gid), old = mid ? r.movs.find(x=>x.id===mid) : null;
-  const m = {id: mid || uid(), tipo, cantidad: Math.round(num(c)), fecha: $('cFecha').value||hoy(), hora: $('cHora').value||ahora(),
+  const m = {id: mid || uid(), tipo, cantidad: Math.round(num(c)*100)/100, galones: Math.round(num(c)*num(r.galCaneca)*100)/100, fecha: $('cFecha').value||hoy(), hora: $('cHora').value||ahora(),
     generadorId: gid, generador: g?genNombre(g):'', responsable: $('cResp').value.trim(), obs: $('cObs').value.trim(), t: old?.t || Date.now()};
   if(tipo==='Trasvase'){
     const [cid, tid] = ($('cTq')?.value||'|').split('|'), gal = m.cantidad * num(r.galCaneca);
