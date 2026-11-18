@@ -120,6 +120,12 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
 main.full{max-width:none}
 .gridcd .tq{min-width:120px}
 .tqinfo .mat,.tqinfo .btn{white-space:nowrap}
+.cfLista{display:flex;flex-direction:column;gap:10px}
+.cfila{display:grid;grid-template-columns:200px 1fr 170px;gap:14px;align-items:center;background:var(--card);border:1px solid var(--borde);border-radius:12px;padding:12px 14px}
+.cfila h3{margin:0 0 6px;font-size:17px}.cfila .bt{display:flex;flex-wrap:wrap;gap:5px}
+.cfTq{display:flex;flex-wrap:wrap;gap:10px}.cfTq .tq{flex:0 0 165px;min-width:0}.cfTq .tq:last-child{flex-basis:200px}
+.cfTot{text-align:right;border-left:1px solid var(--borde);padding-left:12px}.cfTot .big{font-size:30px;font-weight:800;color:var(--azul2);line-height:1}
+@media(max-width:800px){.cfila{grid-template-columns:1fr}.cfTot{text-align:left;border-left:0;padding-left:0}}
 .tqs{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
 .tq{display:flex;gap:8px;align-items:center;background:var(--mbg);border:2px solid var(--mc);border-radius:10px;padding:8px;min-width:140px;flex:1}
 .tq.off{opacity:.55;border-style:dashed}
@@ -815,10 +821,7 @@ function renderReporte(){
     </table></div></div>`;
   h += `<div class="panel"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">🛢 Combustible almacenado en Centros de Distribución <span style="font-weight:400;font-size:12px;color:var(--sub)">(saldo actual)</span></h3>
     <div><b style="font-size:20px;color:var(--azul2)">${fmt(k.galCD)} gal</b> <span class="res">tanques ${fmt(k.galCD-k.canCD)} / ${fmt(k.capCD)} + canecas ${fmt(k.canCD)}</span></div></div>
-    ${leyendaMat()}<div class="grid gridcd">${R.cs.map(c=>`<div class="centro">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
-      <div style="text-align:right"><div class="big">${fmt(totCentro(c))}</div><div style="font-size:12px;color:var(--sub)">gal disponibles</div>${canTot(c)}</div></div>
-      <div class="tqs">${tqs(c).map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div>${canFila(c)}</div>`).join('')}</div></div>`;
+    ${leyendaMat()}<div class="cfLista">${R.cs.map(c=>centroHTML(c, true)).join('')}</div></div>`;
   h += `<div class="panel"><h3>⬆ Salidas de combustible del día</h3><div class="tw"><table><tr><th>N°</th><th>Hora</th><th>Sale de</th><th>Tanque</th><th>Destino</th><th>Generador</th><th class="n">Galones</th><th>Nivel generador</th><th>Traslada</th><th>Recibe</th></tr>
     ${R.sal.length?R.sal.map(d=>`<tr><td>${esc(d.numero)}</td><td>${esc(d.hora)}</td><td>${esc(d.origen)}</td><td>${esc(d.tanque||'')}</td><td>${esc(d.destino)}</td><td>${esc(d.generador||'')}</td><td class="n"><b>${fmt(d.galones)}</b></td><td>${esc(d.nivelGenerador||'')}</td><td>${esc(d.traslada||'')}</td><td>${esc(d.liderRecibe||'')}</td></tr>`).join('')+`<tr><td colspan="6"><b>TOTAL</b></td><td class="n"><b>${fmt(k.salidas)}</b></td><td colspan="3"></td></tr>`:'<tr><td colspan="10" style="text-align:center;color:var(--sub)">Sin salidas</td></tr>'}</table></div></div>`;
   h += `<div class="panel"><h3>⬇ Recargas de tanques del día</h3><div class="tw"><table><tr><th>Hora</th><th>Centro</th><th>Tanque</th><th class="n">Galones</th><th>Nivel tanque</th><th>Proveedor</th><th>Factura / Guía</th><th>Recibe</th></tr>
@@ -1675,7 +1678,7 @@ function canTot(c){
 function canFila(c){
   const pz = pzC(c); if(!pz) return '';
   const cn = canecasDe(pz);
-  return `<div class="tq" style="--mc:#6d4c41;--mbg:#efebe9;cursor:pointer;margin-top:8px" title="Clic para ver canecas" onclick="verCanecas('${esc(pz)}')">
+  return `<div class="tq" style="--mc:#6d4c41;--mbg:#efebe9;cursor:pointer" title="Clic para ver canecas" onclick="verCanecas('${esc(pz)}')">
     <div style="font-size:30px;line-height:1">🛢</div><div class="tqinfo"><b>Canecas del centro</b>
     <span style="font-size:15px;font-weight:800;color:${cn.n<=0?'var(--rojo)':'#6d4c41'}">${cn.n} <span style="font-weight:500;font-size:12px;color:var(--sub)">× ${fmt(cn.r.galCaneca)} gal = ${fmt(cn.gal)} gal</span></span></div></div>`;
 }
@@ -1700,17 +1703,16 @@ function verTanque(cid, tid){
         :'<tr><td colspan="6" style="text-align:center;color:var(--sub)">Sin salidas</td></tr>'}</table></div></div>
     <div class="acciones"><button class="btn sec" onclick="cerrar()">Cerrar</button><button class="btn verde" onclick="formIngreso('${cid}','','${tid}')">⛽ Recargar este tanque</button></div>`, true);
 }
-function centroHTML(c){
-  const t = tqs(c), cap = capCentro(c);
-  return `<div class="centro">
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div><div style="font-size:12px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3></div>
-    <div style="text-align:right"><div class="big">${fmt(totCentro(c))}</div><div style="font-size:12px;color:var(--sub)">gal disponibles</div>${canTot(c)}</div></div>
-    ${t.length?`<div class="tqs">${t.map((x,i)=>tanqueHTML(x,i,c.id)).join('')}</div>`:''}
-    ${canFila(c)}
-    ${c.obs?`<div class="nota" style="margin-top:8px">${esc(c.obs)}</div>`:''}
-    <div class="bt"><button class="btn rojo sm" onclick="formDespacho('${c.id}')">⬆ Registrar salida</button>
-    <button class="btn verde sm" onclick="formIngreso('${c.id}')">⛽ Recargar tanque</button>
-    <button class="btn sec sm" onclick="formCentro('${c.id}')">✏ Editar</button><button class="btn sec sm" onclick="eliminarCentro('${c.id}')">🗑</button></div></div>`;
+function centroHTML(c, sinBotones){
+  const t = tqs(c);
+  return `<div class="cfila">
+    <div class="cfNom"><div style="font-size:11px;color:var(--sub)">CENTRO DE DISTRIBUCIÓN</div><h3>${esc(c.nombre)}</h3>
+      ${sinBotones?'':`<div class="bt"><button class="btn rojo sm" onclick="formDespacho('${c.id}')">⬆ Salida</button>
+      <button class="btn verde sm" onclick="formIngreso('${c.id}')">⛽ Recargar</button>
+      <button class="btn sec sm" title="Editar" onclick="formCentro('${c.id}')">✏</button><button class="btn sec sm" title="Eliminar" onclick="eliminarCentro('${c.id}')">🗑</button></div>`}</div>
+    <div class="cfTq">${t.map((x,i)=>tanqueHTML(x,i,c.id)).join('')}${canFila(c)}</div>
+    <div class="cfTot"><div class="big">${fmt(totCentro(c))}</div><div style="font-size:12px;color:var(--sub)">gal disponibles</div>${canTot(c)}</div>
+  </div>`;
 }
 const leyendaMat = () => `<div class="leyenda">${Object.entries(MATERIALES).map(([k,m])=>`<span><i style="background:${m.bg};border-color:${m.c}"></i>${m.ic} ${k}</span>`).join('')}</div>`;
 let filtro = {centro:'', desde:'', hasta:''}, abierto = {sal:false, rec:false};
@@ -1718,7 +1720,7 @@ function renderCD(){
   const cs = state.centros.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
   let h = `<div class="top"><div><h2>🏭 Centro de Distribución</h2><div class="res">${cs.length} centro(s) · Total disponible: <b>${fmt(totalesCD(cs).tot)} gal</b> (tanques ${fmt(totalesCD(cs).tq)} de ${fmt(totalesCD(cs).cap)} + canecas ${fmt(totalesCD(cs).can)})</div></div>
     <button class="btn" onclick="formCentro()">+ Agregar centro</button></div>${leyendaMat()}`;
-  h += cs.length ? '<div class="grid gridcd">' + cs.map(centroHTML).join('') + '</div>'
+  h += cs.length ? '<div class="cfLista">' + cs.map(c=>centroHTML(c)).join('') + '</div>'
     : `<div class="vacio">No hay centros de distribución. Agregue uno con el nombre o la Piazza y sus tanques.</div>`;
 
   const ds = despFiltrados(), ing = recFiltradas();
